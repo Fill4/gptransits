@@ -31,13 +31,12 @@ def main(file, plot=False):
 
 	# Other data
 	period = 6.24668005
+	foldtimes = ntime % period
 	#foldtimes = ntime / period
 	#foldtimes = foldtimes % 1
-	foldtimes = ntime % period
 
 	plt.errorbar(foldtimes, nflux, fmt='.k', markersize=1)
 	plt.show()
-
 	sys.exit() # Exitting
 
 	nbins = 50               # chosen number of bins across the period
