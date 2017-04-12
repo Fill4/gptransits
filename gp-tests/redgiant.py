@@ -182,9 +182,9 @@ def main(file, plot=False):
 
 	#samples2 = np.exp(sampler.chain[:, 500:, :].reshape((-1, ndim)))
 	samples2 = np.exp(samples)
-	samples3 = np.array([[np.sqrt(samples2[0])], [np.sqrt(samples2[1])], [samples2[2]]])
+	samples3 = np.array([np.sqrt(samples2[:,0]), np.sqrt(samples2[:,1]), samples2[:,2]])
 	print np.shape(samples3)
-	fig3 = corner.corner(samples2, labels=["amplitude", "timescale", "jitter"], quantiles=[0.5], show_titles=True)
+	fig3 = corner.corner(samples3.transpose(), labels=["amplitude", "timescale", "jitter"], quantiles=[0.5], show_titles=True)
 
 	fig1.show()
 	fig2.show()
