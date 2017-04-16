@@ -25,7 +25,7 @@ def setupGeorgeGP(p):
 	return gp
 
 # Defining functions to handle the Monte Carlo method calculations
-# Claculates the value of the model for parameters pars in the positions ntime
+# Calculates the value of the model for parameters pars in the positions ntime
 def model(pars, ntime):
 	return 0
 
