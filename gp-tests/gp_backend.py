@@ -17,7 +17,7 @@ import george
 import celerite
 
 # Returns a GP object from the george module with the provided parameters pars
-def setupGeorgeGP(pars):
+def setup_george_gp(pars):
 	t1, t2, jitter = pars
 	#t1, t2 = pars
 	k1 = t1**2 * george.kernels.ExpSquaredKernel(t2**2)
@@ -26,10 +26,17 @@ def setupGeorgeGP(pars):
 	gp = george.GP(kernel)
 	return gp
 
-def gpPrint(pars):
-	parsNames = ["Amplitude", "Timescale", "Jitter"]
-	for i in range(len(pars)):
-		print("{:12} {:1} {:2} {:16.12f}".format(parsNames[i], "-", "", pars[i]))
+def setup_celerite_gp(pars):
+	w0, S0 = pars
+	Q = 1.0 / np.sqrt(2.0)
+	kernel = celerite.terms.SHOTerm(log_S0=np.log(S0**2), log_Q=np.log(Q), log_omega0=np.log(w0**2))
+	kernel.freeze_parameter("log_Q")
+	gp = celerite.GP(kernel)
+	return gp
+
+def print_pars(pars, priors):
+	for par in priors:
+		print("{:12} {:1} {:2} {:16.12f}".format(priors[par][0], "-", "", pars[par]))
 	print("")
 
 # Defining functions to handle the Monte Carlo method calculations
@@ -37,69 +44,78 @@ def gpPrint(pars):
 def model(pars, phase):
 	return np.zeros(len(phase))
 
+# Creates the dictionary priors with the instantiated probability distributions for each parameter 
+def setup_priors(prior_settings):
+	priors = {}
+	for par in prior_settings:
+		priors[par] = [prior_settings[par][0], getattr(scipy.stats, prior_settings[par][1])(loc=prior_settings[par][2], scale=prior_settings[par][3])]
+	return priors
+
 # Draws num number of samples from each of the parameters distribution
-def priorSample(num = 1):
-	t1Init = scipy.stats.uniform.rvs(loc = 0.0, scale = 0.5, size = num)
-	t2Init = scipy.stats.uniform.rvs(loc = 0.0, scale = 1.0, size = num)
-	jitterInit = scipy.stats.uniform.rvs(loc = 0.0, scale = 0.1, size = num)
-	return np.array([t1Init, t2Init, jitterInit])
-	#return np.array([t1Init, t2Init])
+def sample_priors(priors, num = 1):
+	sample = np.zeros([len(priors), num])
+	for par in priors:
+		sample[par] = priors[par][1].rvs(num)
+	return sample
 
 # Defines the priors for all the parameters
-def lnPrior(pars):
-	t1, t2, jitter = pars
-	#t1, t2 = pars
-	# Evaluate parameters according to priors. Change values here to change distributions
-	t1Prior = scipy.stats.uniform.logpdf(t1, loc = 0.0, scale = 0.5)
-	t2Prior = scipy.stats.uniform.logpdf(t2, loc = 0.0, scale = 1.0)
-	jitterPrior = scipy.stats.uniform.logpdf(jitter, loc = 0.0, scale = 0.1)
-	return t1Prior + t2Prior + jitterPrior
+def log_prior(pars, priors):
+	prior_sum = 0
+	# Evaluate parameters according to priors. Return sum when working in log
+	for par in priors:
+		prior_sum += priors[par][1].logpdf(pars[par])
+	return prior_sum
 
 # Calculates the lnlikelihood of the parameters pars proposed. Can include model and
 # prior calculation besides the gaussian process
-def lnLike(pars, phase, flux, error, minimization=False):
-	gp = setupGeorgeGP(pars)
+def log_likelihood(pars, phase, flux, error, priors, minimization=False):
+	gp = setup_george_gp(pars)
+	#gp = setup_celerite_gp(pars)
 	gp.compute(phase, error)
 	lnlikelihood = gp.lnlikelihood(flux - model(pars, phase), quiet=True)
+	#lnlikelihood = gp.log_likelihood(flux - model(pars, phase))
 
 	if (minimization): # scipy minimize has problems with infinities
 		return -lnlikelihood if np.isfinite(lnlikelihood) else 1e25
 	else:
-		prior = lnPrior(pars)
+		prior = log_prior(pars, priors)
 		return prior + lnlikelihood if np.isfinite(prior) else -np.inf
 
 # Calculates the gradient of the lnlikelihood for the proposed parameters pars
 # This quantity is used in minimization methods such as scipy minimize
+# Commented because it's unnecessary to the minimization right now
+''' 
 def lnLikeGrad(pars, phase, flux, error, minimization=False):
 	gp = setupGeorgeGP(pars)
 	gp.compute(phase, error)
 	return -gp.grad_lnlikelihood(flux, quiet=True)
+'''
 
 # Minimization Method
-def runMinimization(dataTuple, plot=False, initPars=None):
+def run_minimization(data, priors, plot=False, init_pars=None):
 
+	# Timing execution time
 	print("-------------------------------------------------------")
-	print("Running Minimization")
+	print("Starting Minimization")
 	print("-------------------------------------------------------\n")
 	startTimeMinimization = timeit.default_timer()
 
 	# Setting up initial parameters and runinng scipy minimize
-	# Timing execution time
-	if initPars is None:
-		initPars = priorSample()
-	results = op.minimize(lnLike, initPars, args=dataTuple + (True,), method='nelder-mead', tol=1e-16)
+	init_pars = sample_priors(priors, 1)
+	results = op.minimize(log_likelihood, init_pars, args=data + (priors, True), method='nelder-mead', tol=1e-18)
 
 	fullTimeMinimization = timeit.default_timer() - startTimeMinimization
-	print("Execution time: {} usec\n".format(fullTimeMinimization))
+	print("Minimization execution time: {} usec\n".format(fullTimeMinimization))
 
-	phase, flux, error = dataTuple
+	phase, flux, error = data
 	# Setting up GP using results from minimization
-	hyperPars = results.x
-	gp = setupGeorgeGP(hyperPars)
+	final_pars = results.x
+	gp = setup_george_gp(final_pars)
+	#gp = setup_celerite_gp(final_pars)
 	gp.compute(phase, error)
 	# Printing hyperparameters
 	print("Hyperparameters from minimization:")
-	gpPrint(hyperPars)
+	print_pars(final_pars, priors)
 
 	if plot:
 
@@ -124,12 +140,13 @@ def runMinimization(dataTuple, plot=False, initPars=None):
 		# Plot sample from the conditional ditribution in lower plot
 		m = gp.sample_conditional(flux, x)
 		ax2.plot(x, m, color="#4682b4", label='Sample')
+		#ax2.plot(x, np.random.normal(loc=mu, scale=std), color="#4682b4", label='Sample')
 		ax2.title.set_text("Sample drawn from the probability distribution above")
 		ax2.set_xlabel('Time')	
 		ax2.set_ylabel('Flux')
 		ax2.legend(loc='upper left')
 
-def runMCMC(dataTuple, plot=False, initPars=None, nwalkers=20, burnin=500, iterations=2000):
+def run_mcmc(dataTuple, plot=False, initPars=None, nwalkers=20, burnin=500, iterations=2000):
 	
 	print("-------------------------------------------------------")
 	print("Running MCMC")
@@ -170,36 +187,38 @@ def runMCMC(dataTuple, plot=False, initPars=None, nwalkers=20, burnin=500, itera
 	gp = setupGeorgeGP(hyperPars)
 	gp.compute(phase, error)
 
-	# Plotting the results from the MCMC method
-	fig1 = plt.figure("MCMC Method")
-	ax1 = fig1.add_subplot(211)
-	ax2 = fig1.add_subplot(212)
-	# Plot initial data with errors in both subplots
-	ax1.errorbar(phase, flux, yerr=error, fmt=".k", capsize=0, label= 'Flux')
-	ax2.errorbar(phase, flux, yerr=error, fmt=".k", capsize=0, label= 'Flux')
-	x = np.linspace(min(phase), max(phase), len(phase)*5)
-	# Plot conditional predictive distribution of the model in upper plot
-	mu, cov = gp.predict(flux, x)
-	std = np.sqrt(np.diag(cov))
-	ax1.plot(x, mu, color="#ff7f0e", label= 'Mean distribution GP')
-	ax1.fill_between(x, mu+3*std, mu-3*std, color="#ff7f0e", alpha=0.2, edgecolor="none", label= '3 sigma')
-	ax1.fill_between(x, mu+2*std, mu-2*std, color="#ff7f0e", alpha=0.4, edgecolor="none", label= '2 sigma')
-	ax1.fill_between(x, mu+std, mu-std, color="#ff7f0e", alpha=0.6, edgecolor="none", label= '1 sigma')
-	ax1.title.set_text("Probability distribution for the gaussian process with the parameters from the MCMC")
-	ax1.set_ylabel('Flux')
-	ax1.legend(loc='upper left')
-	# Compute the prediction conditioned on the observations and plot it.
-	# Plot sample from the conditional ditribution in lower plot
-	m = gp.sample_conditional(flux, x)
-	ax2.plot(x, m, color="#4682b4", label= 'Sample')
-	ax2.title.set_text("Sample drawn from the probability distribution above")
-	ax2.set_xlabel('Time')	
-	ax2.set_ylabel('Flux')
-	ax2.legend(loc='upper left')
+	if plot:
 
-	fig2 = corner.corner(samples, labels=["t_1", "t_2", "jitter"], 
-						 quantiles=[0.5], show_titles=True, title_fmt='.8f',
-						 truths=hyperPars)
+		# Plotting the results from the MCMC method
+		fig1 = plt.figure("MCMC Method")
+		ax1 = fig1.add_subplot(211)
+		ax2 = fig1.add_subplot(212)
+		# Plot initial data with errors in both subplots
+		ax1.errorbar(phase, flux, yerr=error, fmt=".k", capsize=0, label= 'Flux')
+		ax2.errorbar(phase, flux, yerr=error, fmt=".k", capsize=0, label= 'Flux')
+		x = np.linspace(min(phase), max(phase), len(phase)*5)
+		# Plot conditional predictive distribution of the model in upper plot
+		mu, cov = gp.predict(flux, x)
+		std = np.sqrt(np.diag(cov))
+		ax1.plot(x, mu, color="#ff7f0e", label= 'Mean distribution GP')
+		ax1.fill_between(x, mu+3*std, mu-3*std, color="#ff7f0e", alpha=0.2, edgecolor="none", label= '3 sigma')
+		ax1.fill_between(x, mu+2*std, mu-2*std, color="#ff7f0e", alpha=0.4, edgecolor="none", label= '2 sigma')
+		ax1.fill_between(x, mu+std, mu-std, color="#ff7f0e", alpha=0.6, edgecolor="none", label= '1 sigma')
+		ax1.title.set_text("Probability distribution for the gaussian process with the parameters from the MCMC")
+		ax1.set_ylabel('Flux')
+		ax1.legend(loc='upper left')
+		# Compute the prediction conditioned on the observations and plot it.
+		# Plot sample from the conditional ditribution in lower plot
+		m = gp.sample_conditional(flux, x)
+		ax2.plot(x, m, color="#4682b4", label= 'Sample')
+		ax2.title.set_text("Sample drawn from the probability distribution above")
+		ax2.set_xlabel('Time')	
+		ax2.set_ylabel('Flux')
+		ax2.legend(loc='upper left')
+
+		fig2 = corner.corner(samples, labels=["t_1", "t_2", "jitter"], 
+							 quantiles=[0.5], show_titles=True, title_fmt='.8f',
+							 truths=hyperPars)
 
 
 def main(dataTuple, plot=False):
@@ -221,11 +240,13 @@ def main(dataTuple, plot=False):
 	#error = error[ind] 
 	#error = np.mean(abs(flux))/2 * np.random.random(len(time)) #Generate errors
 
+	initPars = None
+
 	# Run minimization
-	runMinimization(dataTuple, plot=plot)
+	runMinimization(dataTuple, plot=plot, initPars=initPars)
 	
 	# Run MCMC
-	runMCMC(dataTuple, plot=plot, nwalkers=12, burnin=400, iterations=1200)
+	runMCMC(dataTuple, plot=plot, nwalkers=12, burnin=500, iterations=2000)
 
 	fullTimeScript = timeit.default_timer() - startTimeScript
 	print("-------------------------------------------------------\n")
@@ -233,8 +254,3 @@ def main(dataTuple, plot=False):
 
 	if plot:
 		plt.show()
-
-if __name__ == "__main__":
-	
-	file = 'kplr_redgiant.dat'
-	main(file, Nmax=200, plot=True)
