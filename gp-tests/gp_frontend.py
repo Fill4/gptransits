@@ -34,7 +34,7 @@ priors = gp_backend.setup_priors(prior_settings)
 gp_backend.run_minimization(data, priors, plot=plot)
 
 # Run MCMC
-#run_mcmc(data, priors, plot=plot, nwalkers=12, burnin=500, iterations=2000)
+gp_backend.run_mcmc(data, priors, plot=plot, nwalkers=16)
 
 if plot:
 	plt.show()

@@ -146,7 +146,7 @@ def run_minimization(data, priors, plot=False, init_pars=None):
 		ax2.set_ylabel('Flux')
 		ax2.legend(loc='upper left')
 
-def run_mcmc(dataTuple, plot=False, initPars=None, nwalkers=20, burnin=500, iterations=2000):
+def run_mcmc(data, priors, plot=False, init_pars=None, nwalkers=20, burnin=500, iterations=2000):
 	
 	print("-------------------------------------------------------")
 	print("Running MCMC")
@@ -154,22 +154,21 @@ def run_mcmc(dataTuple, plot=False, initPars=None, nwalkers=20, burnin=500, iter
 	startTimeMCMC = timeit.default_timer()
 
 	# Draw samples from the prior distributions to have initial values for all the walkers
-	if initPars is None:
-		ndim = 3
-		initPars = priorSample(nwalkers)
+	init_pars = sample_priors(priors, nwalkers)
+	ndim = len(init_pars)
 
-	# Initiate the sampler with 
-	sampler = emcee.EnsembleSampler(nwalkers, ndim, lnLike, args=dataTuple)
+	# Initiate the sampler
+	sampler = emcee.EnsembleSampler(nwalkers, ndim, log_likelihood, args=data + (priors, False))
 
 	#Burn-in
-	newInitPars, _, _ = sampler.run_mcmc(initPars.T, burnin)
+	burnin_pars, _, _ = sampler.run_mcmc(init_pars.T, burnin)
 	print("Acceptance fraction of walkers:")
 	print(sampler.acceptance_fraction)
 	print('')
 	sampler.reset()
 
 	#Run the walkers
-	results, _, _ = sampler.run_mcmc(newInitPars, iterations)
+	results, _, _ = sampler.run_mcmc(burnin_pars, iterations)
 	print("Acceptance fraction of walkers:")
 	print(sampler.acceptance_fraction)
 	print('')
@@ -177,14 +176,14 @@ def run_mcmc(dataTuple, plot=False, initPars=None, nwalkers=20, burnin=500, iter
 	fullTimeMCMC = timeit.default_timer() - startTimeMCMC
 	print("Execution time: {} usec\n".format(fullTimeMCMC))
 	
-	phase, flux, error = dataTuple
+	phase, flux, error = data
 	# Choosing a random chain from the emcee run
 	samples = sampler.flatchain
-	hyperPars = np.median(samples, axis=0)
+	final_pars = np.median(samples, axis=0)
 	print("Hyperparameters from MCMC:")
-	gpPrint(hyperPars)
+	print_pars(final_pars, priors)
 	# Set up the GP for this sample.
-	gp = setupGeorgeGP(hyperPars)
+	gp = setup_george_gp(final_pars)
 	gp.compute(phase, error)
 
 	if plot:
@@ -218,39 +217,4 @@ def run_mcmc(dataTuple, plot=False, initPars=None, nwalkers=20, burnin=500, iter
 
 		fig2 = corner.corner(samples, labels=["t_1", "t_2", "jitter"], 
 							 quantiles=[0.5], show_titles=True, title_fmt='.8f',
-							 truths=hyperPars)
-
-
-def main(dataTuple, plot=False):
-
-	print("\nStarting GP fitting procedure")
-	print("-------------------------------------------------------\n")
-	startTimeScript = timeit.default_timer()
-
-	# Read data from a txt file
-	#data = np.loadtxt(file, usecols=(0,1,2))
-	#time = data[:Nmax,0] - data[0,0]
-	#flux = data[:Nmax,1]
-	#error = data[:Nmax,2]
-
-	# Remove all Nan from the data and generate errors for the flux
-	#ind = np.logical_and(~np.isnan(time), ~np.isnan(flux))
-	#phase = np.array(time[ind])
-	#flux = np.array(flux[ind]) * 1e-8 # Normalize flux
-	#error = error[ind] 
-	#error = np.mean(abs(flux))/2 * np.random.random(len(time)) #Generate errors
-
-	initPars = None
-
-	# Run minimization
-	runMinimization(dataTuple, plot=plot, initPars=initPars)
-	
-	# Run MCMC
-	runMCMC(dataTuple, plot=plot, nwalkers=12, burnin=500, iterations=2000)
-
-	fullTimeScript = timeit.default_timer() - startTimeScript
-	print("-------------------------------------------------------\n")
-	print("Complete execution time: {} usec".format(fullTimeScript))
-
-	if plot:
-		plt.show()
+							 truths=final_pars)
