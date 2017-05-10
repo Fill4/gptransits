@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 import scipy.stats
 import pyfits
 import timeit
+import sys
 import gp_backend
 
 # Start timer
-print("\nStarting GP fitting procedure")
-print("-------------------------------------------------------\n")
+gp_backend.verboseprint('\n{:_^60}'.format('Starting GP fitting procedure'))
 startTimeScript = timeit.default_timer()
 
 # Read data from fits and remove nans
@@ -43,5 +43,5 @@ if plot:
 
 # Print execution time
 fullTimeScript = timeit.default_timer() - startTimeScript
-print("-------------------------------------------------------\n")
-print("Complete execution time: {} usec".format(fullTimeScript))
+gp_backend.verboseprint("\nComplete execution time: {:10.5} usec".format(fullTimeScript))
+gp_backend.verboseprint('\n{:_^60}\n'.format('END'))

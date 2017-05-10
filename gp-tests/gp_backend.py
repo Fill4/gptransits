@@ -11,10 +11,21 @@ import corner
 import timeit
 import scipy.stats
 import scipy.optimize as op
+from config_file import verbose
 
 # Gaussian processes libraries
 import george
 import celerite
+
+if verbose:
+	def verboseprint(*args):
+		# Print each argument separately so caller doesn't need to
+        # stuff everything to be printed into a single string
+		for arg in args:
+			print arg,
+		print
+else:   
+	verboseprint = lambda *a: None # do-nothing function
 
 # Calls the correct gp module according to user definition
 def setup_gp(pars, module='george'):
@@ -47,8 +58,7 @@ def setup_celerite(pars):
 
 def print_pars(pars, priors):
 	for par in priors:
-		print("{:12} {:1} {:2} {:16.12f}".format(priors[par][0], "-", "", pars[par]))
-	print("")
+		verboseprint("{:12} {:1} {:2} {:16.12f}".format(priors[par][0], "-", "", pars[par]))
 
 # Defining functions to handle the Monte Carlo method calculations
 # Calculates the value of the model for parameters pars in the positions phase
@@ -109,9 +119,7 @@ def lnLikeGrad(pars, phase, flux, error, minimization=False):
 def run_minimization(data, priors, plot=False, init_pars=None, module='george'):
 
 	# Timing execution time
-	print("-------------------------------------------------------")
-	print("Starting Minimization")
-	print("-------------------------------------------------------\n")
+	verboseprint('\n{:_^60}\n'.format('Starting Minimization'))
 	startTimeMinimization = timeit.default_timer()
 
 	# Setting up initial parameters and runinng scipy minimize
@@ -119,7 +127,7 @@ def run_minimization(data, priors, plot=False, init_pars=None, module='george'):
 	results = op.minimize(log_likelihood, init_pars, args=data + (priors, True, module), method='nelder-mead', tol=1e-18)
 
 	fullTimeMinimization = timeit.default_timer() - startTimeMinimization
-	print("Minimization execution time: {} usec\n".format(fullTimeMinimization))
+	verboseprint("Minimization execution time: {:10.5} usec\n".format(fullTimeMinimization))
 
 	phase, flux, error = data
 	# Setting up GP using results from minimization
@@ -127,7 +135,7 @@ def run_minimization(data, priors, plot=False, init_pars=None, module='george'):
 	gp = setup_gp(final_pars, module)
 	gp.compute(phase, error)
 	# Printing hyperparameters
-	print("Hyperparameters from minimization:")
+	verboseprint("Hyperparameters from minimization:")
 	print_pars(final_pars, priors)
 
 	if plot:
@@ -159,11 +167,11 @@ def run_minimization(data, priors, plot=False, init_pars=None, module='george'):
 		ax2.set_ylabel('Flux')
 		ax2.legend(loc='upper left')
 
+	return final_pars, fullTimeMinimization
+
 def run_mcmc(data, priors, plot=False, init_pars=None, nwalkers=20, burnin=500, iterations=2000, module='george'):
 	
-	print("-------------------------------------------------------")
-	print("Running MCMC")
-	print("-------------------------------------------------------\n")
+	verboseprint('\n{:_^60}\n'.format('Starting MCMC'))
 	startTimeMCMC = timeit.default_timer()
 
 	# Draw samples from the prior distributions to have initial values for all the walkers
@@ -175,25 +183,24 @@ def run_mcmc(data, priors, plot=False, init_pars=None, nwalkers=20, burnin=500, 
 
 	#Burn-in
 	burnin_pars, _, _ = sampler.run_mcmc(init_pars.T, burnin)
-	print("Acceptance fraction of walkers:")
-	print(sampler.acceptance_fraction)
-	print('')
+	verboseprint("Acceptance fraction of burn-in walkers:")
+	verboseprint(sampler.acceptance_fraction)
+	
 	sampler.reset()
 
 	#Run the walkers
 	results, _, _ = sampler.run_mcmc(burnin_pars, iterations)
-	print("Acceptance fraction of walkers:")
-	print(sampler.acceptance_fraction)
-	print('')
+	verboseprint("Acceptance fraction of final walkers:")
+	verboseprint(sampler.acceptance_fraction)
 
 	fullTimeMCMC = timeit.default_timer() - startTimeMCMC
-	print("Execution time: {} usec\n".format(fullTimeMCMC))
+	verboseprint("\nMCMC execution time: {:10.5} usec\n".format(fullTimeMCMC))
 	
 	phase, flux, error = data
 	# Choosing a random chain from the emcee run
 	samples = sampler.flatchain
 	final_pars = np.median(samples, axis=0)
-	print("Hyperparameters from MCMC:")
+	verboseprint("Hyperparameters from MCMC:")
 	print_pars(final_pars, priors)
 	# Set up the GP for this sample.
 	gp = setup_gp(final_pars, module)
