@@ -9,10 +9,14 @@ fits_options['error'] = 'SAP_FLUX_ERR'
 
 # Settings for defining the priors for all parameters
 prior_settings = {}
-prior_settings[0] = ['Amplitude', 'uniform', 0.0, 1.0]
-prior_settings[1] = ['Timescale', 'uniform', 0.0, 1.0]
-prior_settings[2] = ['Jitter', 'uniform', 0.0, 1.0]
+prior_settings[0] = ['Amplitude', 'uniform', 0.0, 0.1]
+prior_settings[1] = ['Timescale', 'uniform', 0.0, 0.1]
+prior_settings[2] = ['Jitter', 'uniform', 0.0, 0.1]
 
 # Other parameters
 Nmax = 500
 plot = True
+nwalkers = 20
+burnin = 500
+iterations = 2000
+module = 'george'
