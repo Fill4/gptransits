@@ -16,8 +16,18 @@ import scipy.optimize as op
 import george
 import celerite
 
+# Calls the correct gp module according to user definition
+def setup_gp(pars, module='george'):
+	if module == 'george':
+		gp = setup_george(pars)
+	elif module == 'celerite':
+		gp = setup_celerite(pars)
+	else:
+		sys.exit('Choose valid gaussian process module')
+	return gp
+	
 # Returns a GP object from the george module with the provided parameters pars
-def setup_george_gp(pars):
+def setup_george(pars):
 	t1, t2, jitter = pars
 	#t1, t2 = pars
 	k1 = t1**2 * george.kernels.ExpSquaredKernel(t2**2)
@@ -26,11 +36,12 @@ def setup_george_gp(pars):
 	gp = george.GP(kernel)
 	return gp
 
-def setup_celerite_gp(pars):
+# Returns a GP object from the celerite module with the provided parameters pars
+def setup_celerite(pars):
 	w0, S0 = pars
 	Q = 1.0 / np.sqrt(2.0)
 	kernel = celerite.terms.SHOTerm(log_S0=np.log(S0**2), log_Q=np.log(Q), log_omega0=np.log(w0**2))
-	kernel.freeze_parameter("log_Q")
+	#kernel += celerite.terms.JitterTerm(log_sigma=np.log(jitter**2))
 	gp = celerite.GP(kernel)
 	return gp
 
@@ -68,12 +79,15 @@ def log_prior(pars, priors):
 
 # Calculates the lnlikelihood of the parameters pars proposed. Can include model and
 # prior calculation besides the gaussian process
-def log_likelihood(pars, phase, flux, error, priors, minimization=False):
-	gp = setup_george_gp(pars)
-	#gp = setup_celerite_gp(pars)
+def log_likelihood(pars, phase, flux, error, priors, minimization=False, module='george'):
+	gp = setup_gp(pars, module)
 	gp.compute(phase, error)
-	lnlikelihood = gp.lnlikelihood(flux - model(pars, phase), quiet=True)
-	#lnlikelihood = gp.log_likelihood(flux - model(pars, phase))
+	if module == 'george':
+		lnlikelihood = gp.lnlikelihood(flux - model(pars, phase), quiet=True)
+	elif module == 'celerite':
+		lnlikelihood = gp.log_likelihood(flux - model(pars, phase))
+	else:
+		sys.exit('Choose valid gaussian process module')
 
 	if (minimization): # scipy minimize has problems with infinities
 		return -lnlikelihood if np.isfinite(lnlikelihood) else 1e25
@@ -86,13 +100,13 @@ def log_likelihood(pars, phase, flux, error, priors, minimization=False):
 # Commented because it's unnecessary to the minimization right now
 ''' 
 def lnLikeGrad(pars, phase, flux, error, minimization=False):
-	gp = setupGeorgeGP(pars)
+	gp = setup_george(pars)
 	gp.compute(phase, error)
 	return -gp.grad_lnlikelihood(flux, quiet=True)
 '''
 
 # Minimization Method
-def run_minimization(data, priors, plot=False, init_pars=None):
+def run_minimization(data, priors, plot=False, init_pars=None, module='george'):
 
 	# Timing execution time
 	print("-------------------------------------------------------")
@@ -102,7 +116,7 @@ def run_minimization(data, priors, plot=False, init_pars=None):
 
 	# Setting up initial parameters and runinng scipy minimize
 	init_pars = sample_priors(priors, 1)
-	results = op.minimize(log_likelihood, init_pars, args=data + (priors, True), method='nelder-mead', tol=1e-18)
+	results = op.minimize(log_likelihood, init_pars, args=data + (priors, True, module), method='nelder-mead', tol=1e-18)
 
 	fullTimeMinimization = timeit.default_timer() - startTimeMinimization
 	print("Minimization execution time: {} usec\n".format(fullTimeMinimization))
@@ -110,8 +124,7 @@ def run_minimization(data, priors, plot=False, init_pars=None):
 	phase, flux, error = data
 	# Setting up GP using results from minimization
 	final_pars = results.x
-	gp = setup_george_gp(final_pars)
-	#gp = setup_celerite_gp(final_pars)
+	gp = setup_gp(final_pars, module)
 	gp.compute(phase, error)
 	# Printing hyperparameters
 	print("Hyperparameters from minimization:")
@@ -120,7 +133,7 @@ def run_minimization(data, priors, plot=False, init_pars=None):
 	if plot:
 
 		# Plotting the results from the minimization method
-		fig = plt.figure("Minimization Method")
+		fig = plt.figure("Minimization Method", figsize=(12, 12))
 		ax1 = fig.add_subplot(211)
 		ax2 = fig.add_subplot(212)
 		# Plot initial data with errors in both subplots
@@ -138,15 +151,15 @@ def run_minimization(data, priors, plot=False, init_pars=None):
 		ax1.set_ylabel('Flux')
 		ax1.legend(loc='upper left')
 		# Plot sample from the conditional ditribution in lower plot
-		m = gp.sample_conditional(flux, x)
-		ax2.plot(x, m, color="#4682b4", label='Sample')
-		#ax2.plot(x, np.random.normal(loc=mu, scale=std), color="#4682b4", label='Sample')
+		#m = gp.sample_conditional(flux, x)
+		#ax2.plot(x, m, color="#4682b4", label='Sample')
+		ax2.plot(x, np.random.normal(loc=mu, scale=std), color="#4682b4", label='Sample')
 		ax2.title.set_text("Sample drawn from the probability distribution above")
 		ax2.set_xlabel('Time')	
 		ax2.set_ylabel('Flux')
 		ax2.legend(loc='upper left')
 
-def run_mcmc(data, priors, plot=False, init_pars=None, nwalkers=20, burnin=500, iterations=2000):
+def run_mcmc(data, priors, plot=False, init_pars=None, nwalkers=20, burnin=500, iterations=2000, module='george'):
 	
 	print("-------------------------------------------------------")
 	print("Running MCMC")
@@ -158,7 +171,7 @@ def run_mcmc(data, priors, plot=False, init_pars=None, nwalkers=20, burnin=500, 
 	ndim = len(init_pars)
 
 	# Initiate the sampler
-	sampler = emcee.EnsembleSampler(nwalkers, ndim, log_likelihood, args=data + (priors, False))
+	sampler = emcee.EnsembleSampler(nwalkers, ndim, log_likelihood, args=data + (priors, False, module))
 
 	#Burn-in
 	burnin_pars, _, _ = sampler.run_mcmc(init_pars.T, burnin)
@@ -183,13 +196,13 @@ def run_mcmc(data, priors, plot=False, init_pars=None, nwalkers=20, burnin=500, 
 	print("Hyperparameters from MCMC:")
 	print_pars(final_pars, priors)
 	# Set up the GP for this sample.
-	gp = setup_george_gp(final_pars)
+	gp = setup_gp(final_pars, module)
 	gp.compute(phase, error)
 
 	if plot:
 
 		# Plotting the results from the MCMC method
-		fig1 = plt.figure("MCMC Method")
+		fig1 = plt.figure("MCMC Method", figsize=(12, 12))
 		ax1 = fig1.add_subplot(211)
 		ax2 = fig1.add_subplot(212)
 		# Plot initial data with errors in both subplots
@@ -208,13 +221,15 @@ def run_mcmc(data, priors, plot=False, init_pars=None, nwalkers=20, burnin=500, 
 		ax1.legend(loc='upper left')
 		# Compute the prediction conditioned on the observations and plot it.
 		# Plot sample from the conditional ditribution in lower plot
-		m = gp.sample_conditional(flux, x)
-		ax2.plot(x, m, color="#4682b4", label= 'Sample')
+		#m = gp.sample_conditional(flux, x)
+		#ax2.plot(x, m, color="#4682b4", label= 'Sample')
+		ax2.plot(x, np.random.normal(loc=mu, scale=std), color="#4682b4", label='Sample')
 		ax2.title.set_text("Sample drawn from the probability distribution above")
 		ax2.set_xlabel('Time')	
 		ax2.set_ylabel('Flux')
 		ax2.legend(loc='upper left')
 
-		fig2 = corner.corner(samples, labels=["t_1", "t_2", "jitter"], 
-							 quantiles=[0.5], show_titles=True, title_fmt='.8f',
-							 truths=final_pars)
+		labels = [priors[i][0] for i in priors]
+		fig2 = corner.corner(samples, labels=labels, 
+							 quantiles=[0.5], show_titles=True, title_fmt='.6f',
+							 truths=final_pars, figsize=(15, 15))

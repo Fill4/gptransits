@@ -31,13 +31,15 @@ data = (time, flux, error)
 priors = gp_backend.setup_priors(prior_settings)
 
 # Run minimization
-gp_backend.run_minimization(data, priors, plot=plot)
+gp_backend.run_minimization(data, priors, plot=plot, module=module)
 
 # Run MCMC
-gp_backend.run_mcmc(data, priors, plot=plot, nwalkers=16)
+gp_backend.run_mcmc(data, priors, plot=plot, nwalkers=nwalkers, burnin=burnin, iterations=iterations, module=module)
 
 if plot:
-	plt.show()
+	for i in plt.get_fignums():
+		plt.figure(i)
+		plt.savefig('Figures/figure%d.png' % i, dpi = 200)
 
 # Print execution time
 fullTimeScript = timeit.default_timer() - startTimeScript
