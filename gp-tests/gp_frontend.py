@@ -2,7 +2,6 @@ from config_file import *
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats
-import pyfits
 import timeit
 import sys
 import gp_backend
@@ -11,21 +10,12 @@ import gp_backend
 gp_backend.verboseprint('\n{:_^60}'.format('Starting GP fitting procedure'))
 startTimeScript = timeit.default_timer()
 
-# Read data from fits and remove nans
-hdulist = pyfits.open(filename)
-
-ntime = getattr(hdulist[1].data, fits_options['time'])[:Nmax]
-nflux = getattr(hdulist[1].data, fits_options['flux'])[:Nmax]
-nerror = getattr(hdulist[1].data, fits_options['error'])[:Nmax]
-
-ind = np.logical_and(~np.isnan(ntime), ~np.isnan(nflux))
-time = ntime[ind]
-flux = nflux[ind]
-error = nerror[ind]
-flux = flux - np.mean(flux)
-
 # Bundle data in tuple for organisation
-data = (time, flux, error)
+if filename.endswith('.fits'):
+	data = gp_backend.readfits(filename, Nmax)
+else:
+	data = gp_backend.readtxt(filename, Nmax)
+#data = (time, flux, error)
 
 # Initiate prior distributions according to options set by user
 priors = gp_backend.setup_priors(prior_settings)
