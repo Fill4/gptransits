@@ -9,6 +9,7 @@ import sys, os
 import emcee
 import corner
 import timeit
+import pyfits
 import scipy.stats
 import scipy.optimize as op
 from config_file import verbose
@@ -26,6 +27,39 @@ if verbose:
 		print
 else:   
 	verboseprint = lambda *a: None # do-nothing function
+
+def readfits(filename, Nmax):
+	# Read data from fits and remove nans
+	hdulist = pyfits.open(filename)
+
+	ntime = getattr(hdulist[1].data, fits_options['time'])[:Nmax]
+	nflux = getattr(hdulist[1].data, fits_options['flux'])[:Nmax]
+	nerror = getattr(hdulist[1].data, fits_options['error'])[:Nmax]
+	nerror[~np.isfinite(nerror)] = 0
+
+	ind = np.logical_and(~np.isnan(ntime), ~np.isnan(nflux))
+	time = ntime[ind]
+	flux = nflux[ind]
+	error = nerror[ind]
+	flux = flux - np.mean(flux)
+
+	return (time, flux, error)
+
+def readtxt(filename, Nmax):
+	buffer = np.loadtxt(filename)
+
+	ntime = buffer[:Nmax,0]
+	nflux = buffer[:Nmax,1]
+	nerror = buffer[:Nmax,2]
+	nerror[~np.isfinite(nerror)] = 0
+
+	ind = np.logical_and(~np.isnan(ntime), ~np.isnan(nflux))
+	time = ntime[ind]
+	flux = nflux[ind]
+	error = nerror[ind]
+	flux = flux - np.mean(flux)
+
+	return (time, flux, error)
 
 # Calls the correct gp module according to user definition
 def setup_gp(pars, module='george'):
