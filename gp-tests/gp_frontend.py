@@ -3,35 +3,55 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats
 import timeit
-import sys
+import sys, os, os.path
 import gp_backend
 
-# Start timer
-gp_backend.verboseprint('\n{:_^60}'.format('Starting GP fitting procedure'))
-startTimeScript = timeit.default_timer()
-
-# Bundle data in tuple for organisation
-if filename.endswith('.fits'):
-	data = gp_backend.readfits(filename, Nmax)
+if (filename):
+	star_list = []
+	star_list.append(filename)
 else:
-	data = gp_backend.readtxt(filename, Nmax)
-#data = (time, flux, error)
+	star_list = []
+	f = open(listfile)
+	for file in f.readlines():
+		if not (file.startswith('#')):
+			star_list.append(file.rstrip())
 
-# Initiate prior distributions according to options set by user
-priors = gp_backend.setup_priors(prior_settings)
+for file in star_list:
+	z = open('results.dat', 'a')
+	z.write(file + '\t')
+	z.close()
+	filename = 'RGBensemble/' + file
 
-# Run minimization
-gp_backend.run_minimization(data, priors, plot=plot, module=module)
+	# Start timer
+	gp_backend.verboseprint('\n{:_^60}'.format('Starting GP fitting procedure'))
+	startTimeScript = timeit.default_timer()
 
-# Run MCMC
-gp_backend.run_mcmc(data, priors, plot=plot, nwalkers=nwalkers, burnin=burnin, iterations=iterations, module=module)
+	# Bundle data in tuple for organisation
+	if filename.endswith('.fits'):
+		data = gp_backend.readfits(filename, Nmax)
+	else:
+		data = gp_backend.readtxt(filename, Nmax)
+	#data = (time, flux, error)
 
-if plot:
-	for i in plt.get_fignums():
-		plt.figure(i)
-		plt.savefig('Figures/figure%d.png' % i, dpi = 200)
+	# Initiate prior distributions according to options set by user
+	priors = gp_backend.setup_priors(prior_settings)
 
-# Print execution time
-fullTimeScript = timeit.default_timer() - startTimeScript
-gp_backend.verboseprint("\nComplete execution time: {:10.5} usec".format(fullTimeScript))
-gp_backend.verboseprint('\n{:_^60}\n'.format('END'))
+	# Run minimization
+	gp_backend.run_minimization(data, priors, plot=plot, module=module)
+
+	# Run MCMC
+	gp_backend.run_mcmc(data, priors, plot=plot, nwalkers=nwalkers, burnin=burnin, iterations=iterations, module=module)
+
+	if plot:
+		for i in plt.get_fignums():
+			plt.figure(i)
+			plt.savefig('Figures/%s%s%d.png' % (os.path.splitext(os.path.basename(filename))[0], '_fig', i), dpi = 200)
+			plt.clf()
+			plt.cla()
+			plt.close()
+
+
+	# Print execution time
+	fullTimeScript = timeit.default_timer() - startTimeScript
+	gp_backend.verboseprint("\nComplete execution time: {:10.5} usec".format(fullTimeScript))
+	gp_backend.verboseprint('\n{:_^60}\n'.format('END'))

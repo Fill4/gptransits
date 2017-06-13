@@ -39,7 +39,8 @@ def readfits(filename, Nmax):
 
 	ind = np.logical_and(~np.isnan(ntime), ~np.isnan(nflux))
 	time = ntime[ind]
-	flux = nflux[ind]
+	time = time - time[0]
+	flux = nflux[ind]/max(nflux[ind])
 	error = nerror[ind]
 	flux = flux - np.mean(flux)
 
@@ -55,7 +56,8 @@ def readtxt(filename, Nmax):
 
 	ind = np.logical_and(~np.isnan(ntime), ~np.isnan(nflux))
 	time = ntime[ind]
-	flux = nflux[ind]
+	time = time - time[0]
+	flux = nflux[ind]/max(nflux[ind])
 	error = nerror[ind]
 	flux = flux - np.mean(flux)
 
@@ -83,10 +85,11 @@ def setup_george(pars):
 
 # Returns a GP object from the celerite module with the provided parameters pars
 def setup_celerite(pars):
-	w0, S0 = pars
+	S0, w0, jitter = pars
 	Q = 1.0 / np.sqrt(2.0)
-	kernel = celerite.terms.SHOTerm(log_S0=np.log(S0**2), log_Q=np.log(Q), log_omega0=np.log(w0**2))
-	#kernel += celerite.terms.JitterTerm(log_sigma=np.log(jitter**2))
+	kernel = celerite.terms.SHOTerm(log_S0=np.log(S0), log_Q=np.log(Q), log_omega0=np.log(w0))
+	kernel.freeze_parameter("log_Q")
+	kernel += celerite.terms.JitterTerm(log_sigma=np.log(jitter**2))
 	gp = celerite.GP(kernel)
 	return gp
 
@@ -236,6 +239,11 @@ def run_mcmc(data, priors, plot=False, init_pars=None, nwalkers=20, burnin=500, 
 	final_pars = np.median(samples, axis=0)
 	verboseprint("Hyperparameters from MCMC:")
 	print_pars(final_pars, priors)
+
+	z = open('results.dat', 'a')
+	z.write('{:10.6f}{:10}{:10.6f}{:6}{:10.6f}\n'.format(final_pars[0],'',final_pars[1],'',final_pars[2]))
+	z.close()
+
 	# Set up the GP for this sample.
 	gp = setup_gp(final_pars, module)
 	gp.compute(phase, error)
