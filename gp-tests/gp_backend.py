@@ -23,8 +23,8 @@ if verbose:
 		# Print each argument separately so caller doesn't need to
         # stuff everything to be printed into a single string
 		for arg in args:
-			print arg,
-		print
+			print(arg,)
+		print()
 else:   
 	verboseprint = lambda *a: None # do-nothing function
 
