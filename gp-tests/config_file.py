@@ -20,7 +20,7 @@ prior_settings[2] = ['Jitter', 'uniform', 0.0, 0.2]
 plot = True
 verbose = True
 
-Nmax = 200
+Nmax = 1300
 module = 'celerite'
 
 nwalkers = 20
