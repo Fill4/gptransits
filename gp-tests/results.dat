@@ -1,5 +1,4 @@
-filename  				 |  Amplitude (S0)  |  Timescale (w0)  |  Jitter
-kplr009267654_d21_v1.dat	  0.003554           48.053421        0.098387
+#filename  				 |  Amplitude (S0)  |  Timescale (w0)  |  Jitter
 
 kplr003744043_d21_v1.dat	  0.007750           38.979798        0.056508
 kplr006117517_d21_v1.dat	  0.005055           40.933015        0.051059
