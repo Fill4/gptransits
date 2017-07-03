@@ -21,11 +21,11 @@ else:
 if os.path.exists(results_file):
     pass
 else:
-	z = open(results_file + '.dat', 'w')
+	z = open(results_file + '.results', 'w')
 	z.close()
 
 for file in star_list:
-	z = open(results_file + '.dat', 'a')
+	z = open(results_file + '.results', 'a')
 	z.write(file + '\t')
 	z.close()
 	filename = 'RGBensemble/' + file
