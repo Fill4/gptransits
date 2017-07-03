@@ -1,3 +1,4 @@
+#!/home/fill/anaconda3/bin/python
 from config_file import *
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,8 +17,15 @@ else:
 		if not (file.startswith('#')):
 			star_list.append(file.rstrip())
 
+# If there is no file , create it
+if os.path.exists(results_file):
+    pass
+else:
+	z = open(results_file + '.dat', 'w')
+	z.close()
+
 for file in star_list:
-	z = open('results.dat', 'a')
+	z = open(results_file + '.dat', 'a')
 	z.write(file + '\t')
 	z.close()
 	filename = 'RGBensemble/' + file
