@@ -1,3 +1,4 @@
+#!/home/fill/anaconda3/bin/python
 ''' Filipe Pereira - 2017
 General procedure for fitting light curve data to a model and using
 gaussian processes to fit the remaining stochastic noise
@@ -78,7 +79,7 @@ def setup_george(pars):
 	t1, t2, jitter = pars
 	#t1, t2 = pars
 	k1 = t1**2 * george.kernels.ExpSquaredKernel(t2**2)
-	k2 = george.kernels.WhiteKernel(jitter**2)
+	k2 = george.kernels.WhiteKernel(jitter)
 	kernel = k1 + k2
 	gp = george.GP(kernel)
 	return gp
@@ -240,7 +241,7 @@ def run_mcmc(data, priors, plot=False, init_pars=None, nwalkers=20, burnin=500, 
 	verboseprint("Hyperparameters from MCMC:")
 	print_pars(final_pars, priors)
 
-	z = open('results.dat', 'a')
+	z = open(results_file + '.dat', 'a')
 	z.write('{:10.6f}{:10}{:10.6f}{:6}{:10.6f}\n'.format(final_pars[0],'',final_pars[1],'',final_pars[2]))
 	z.close()
 

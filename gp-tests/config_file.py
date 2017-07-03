@@ -1,8 +1,11 @@
+#!/home/fill/anaconda3/bin/python
 # File with data, fits format
 
-filename = 'kplr009267654_d21_v1.dat'
-#filename = None
+#filename = 'kplr009267654_d21_v1.dat'
+filename = None
 listfile = 'list.dat'
+
+results_file = 'res_george_expsq'
 
 # Keywords for the fits file data
 fits_options = {}
@@ -14,7 +17,7 @@ fits_options['error'] = 'SAP_FLUX_ERR'
 prior_settings = {}
 prior_settings[0] = ['Amplitude', 'uniform', 0.0, 0.1]
 prior_settings[1] = ['Timescale', 'uniform', 0.0, 100.0]
-prior_settings[2] = ['Jitter', 'uniform', 0.0, 0.00001]
+prior_settings[2] = ['Jitter', 'uniform', 0.0, 0.0005]
 
 # Other parameters
 plot = True
