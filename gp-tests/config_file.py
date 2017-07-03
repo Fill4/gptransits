@@ -5,7 +5,7 @@
 filename = None
 listfile = 'list.dat'
 
-results_file = 'res_george_expsq'
+results_file = 'george_expsq'
 
 # Keywords for the fits file data
 fits_options = {}
@@ -15,17 +15,17 @@ fits_options['error'] = 'SAP_FLUX_ERR'
 
 # Settings for defining the priors for all parameters
 prior_settings = {}
-prior_settings[0] = ['Amplitude', 'uniform', 0.0, 0.1]
-prior_settings[1] = ['Timescale', 'uniform', 0.0, 100.0]
-prior_settings[2] = ['Jitter', 'uniform', 0.0, 0.0005]
+prior_settings[0] = ['Amplitude', 'uniform', 0.0, 1.0]
+prior_settings[1] = ['Timescale', 'uniform', 0.0, 1.0]
+prior_settings[2] = ['Jitter', 'uniform', 0.0, 1.0]
 
 # Other parameters
 plot = True
 verbose = True
 
-Nmax = 200
-module = 'celerite'
+Nmax = 1300
+module = 'george'
 
 nwalkers = 20
-burnin = 500
-iterations = 2500
+burnin = 400
+iterations = 2000
