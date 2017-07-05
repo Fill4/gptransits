@@ -18,7 +18,7 @@ else:
 			star_list.append(file.rstrip())
 
 # If there is no file , create it
-if os.path.exists(results_file):
+if os.path.exists(results_file + '.results'):
     pass
 else:
 	z = open(results_file + '.results', 'w')
