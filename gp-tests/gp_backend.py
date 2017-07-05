@@ -36,7 +36,7 @@ def readfits(filename, Nmax):
 	ntime = getattr(hdulist[1].data, fits_options['time'])[:Nmax]
 	nflux = getattr(hdulist[1].data, fits_options['flux'])[:Nmax]
 	nerror = getattr(hdulist[1].data, fits_options['error'])[:Nmax]
-	nerror[~np.isfinite(nerror)] = 0
+	nerror[~np.isfinite(nerror)] = 1e-5
 
 	ind = np.logical_and(~np.isnan(ntime), ~np.isnan(nflux))
 	time = ntime[ind]
@@ -53,7 +53,7 @@ def readtxt(filename, Nmax):
 	ntime = buffer[:Nmax,0]
 	nflux = buffer[:Nmax,1]
 	nerror = buffer[:Nmax,2]
-	nerror[~np.isfinite(nerror)] = 0
+	nerror[~np.isfinite(nerror)] = 1e-5
 
 	ind = np.logical_and(~np.isnan(ntime), ~np.isnan(nflux))
 	time = ntime[ind]
@@ -86,11 +86,12 @@ def setup_george(pars):
 
 # Returns a GP object from the celerite module with the provided parameters pars
 def setup_celerite(pars):
-	S0, w0, jitter = pars
+	#S0, w0, jitter = pars
+	S0, w0 = pars
 	Q = 1.0 / np.sqrt(2.0)
 	kernel = celerite.terms.SHOTerm(log_S0=np.log(S0), log_Q=np.log(Q), log_omega0=np.log(w0))
 	kernel.freeze_parameter("log_Q")
-	kernel += celerite.terms.JitterTerm(log_sigma=np.log(jitter**2))
+	#kernel += celerite.terms.JitterTerm(log_sigma=np.log(jitter**2))
 	gp = celerite.GP(kernel)
 	return gp
 
@@ -244,6 +245,7 @@ def run_mcmc(data, priors, plot=False, init_pars=None, nwalkers=20, burnin=500, 
 
 	z = open(results_file + '.results', 'a')
 	z.write('{:10.6f}{:10}{:10.6f}{:6}{:10.6f}\n'.format(final_pars[0],'',final_pars[1],'',final_pars[2]))
+	#z.write('{:10.6f}{:10}{:10.6f}\n'.format(final_pars[0],'',final_pars[1]))
 	z.close()
 
 	# Set up the GP for this sample.
