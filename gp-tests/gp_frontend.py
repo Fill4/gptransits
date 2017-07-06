@@ -1,4 +1,10 @@
-#!/home/Fill4/anaconda3/bin/python
+#!/usr/bin/env python3
+
+''' Filipe Pereira - 2017
+General procedure for fitting light curve data to a model and using
+gaussian processes to fit the remaining stochastic noise
+'''
+
 from config_file import *
 import numpy as np
 import matplotlib.pyplot as plt
