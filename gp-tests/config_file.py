@@ -1,9 +1,11 @@
-#!/home/fill/anaconda3/bin/python
-# File with data, fits format
+''' Filipe Pereira - 2017
+Configuration file for the gp-tests methods
+'''
 
+#Filenames or lists with stellar data
 filename = 'kplr009267654_d21_v1.dat'
 filelist = 'list.dat'
-
+# Filename where to write or append the results
 results_file = 'celerite_test'
 
 # Keywords for the fits file data
