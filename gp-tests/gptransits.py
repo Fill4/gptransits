@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import scipy.stats
 import timeit
 import sys, os, os.path
-import gp_backend
+import backend
 
 star_list = []
 try:
@@ -41,24 +41,24 @@ for file in star_list:
 	filename = 'RGBensemble/' + file
 
 	# Start timer
-	gp_backend.verboseprint('\n{:_^60}'.format('Starting GP fitting procedure'))
+	backend.verboseprint('\n{:_^60}'.format('Starting GP fitting procedure'))
 	startTimeScript = timeit.default_timer()
 
 	# Bundle data in tuple for organisation
 	if filename.endswith('.fits'):
-		data = gp_backend.readfits(filename, Nmax)
+		data = backend.readfits(filename, Nmax)
 	else:
-		data = gp_backend.readtxt(filename, Nmax)
+		data = backend.readtxt(filename, Nmax)
 	#data = (time, flux, error)
 
 	# Initiate prior distributions according to options set by user
-	priors = gp_backend.setup_priors(prior_settings)
+	priors = backend.setup_priors(prior_settings)
 
 	# Run minimization
-	gp_backend.run_minimization(data, priors, plot=plot, module=module)
+	backend.run_minimization(data, priors, plot=plot, module=module)
 
 	# Run MCMC
-	final_pars = gp_backend.run_mcmc(data, priors, plot=plot, nwalkers=nwalkers, burnin=burnin, iterations=iterations, module=module)
+	final_pars = backend.run_mcmc(data, priors, plot=plot, nwalkers=nwalkers, burnin=burnin, iterations=iterations, module=module)
 
 	write_buffer += '{:^16.6f}{:^16.6f}{:^16.6f}\n'.format(final_pars[0],final_pars[1],final_pars[2])
 	#write_buffer +=('{:10.6f}{:10}{:10.6f}\n'.format(final_pars[0],'',final_pars[1]))
@@ -77,5 +77,5 @@ for file in star_list:
 
 	# Print execution time
 	fullTimeScript = timeit.default_timer() - startTimeScript
-	gp_backend.verboseprint("\nComplete execution time: {:10.5} usec".format(fullTimeScript))
-	gp_backend.verboseprint('\n{:_^60}\n'.format('END'))
+	backend.verboseprint("\nComplete execution time: {:10.5} usec".format(fullTimeScript))
+	backend.verboseprint('\n{:_^60}\n'.format('END'))
