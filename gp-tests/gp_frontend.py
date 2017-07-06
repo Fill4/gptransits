@@ -1,4 +1,4 @@
-#!/home/fill/anaconda3/bin/python
+#!/home/Fill4/anaconda3/bin/python
 from config_file import *
 import numpy as np
 import matplotlib.pyplot as plt
@@ -7,27 +7,31 @@ import timeit
 import sys, os, os.path
 import gp_backend
 
-if (filename):
-	star_list = []
+star_list = []
+try:
 	star_list.append(filename)
-else:
-	star_list = []
-	f = open(listfile)
-	for file in f.readlines():
-		if not (file.startswith('#')):
-			star_list.append(file.rstrip())
+except NameError:
+	try:
+		f = open(filelist)
+	except NameError:
+		sys.exit('Neither filename nor filelist defined. Stopping!')
+	else:	
+		for file in f.readlines():
+			if not (file.startswith('#')):
+				star_list.append(file.rstrip())
 
 # If there is no file , create it
 if os.path.exists(results_file + '.results'):
     pass
 else:
 	z = open(results_file + '.results', 'w')
+	z.write('{:30}{:^16}{:^16}{:^16}\n'.format('Filename', 'Amplitude', 'Timescale', 'Jitter'))
 	z.close()
 
 for file in star_list:
-	z = open(results_file + '.results', 'a')
-	z.write(file + '\t')
-	z.close()
+	
+	# Add filename to buffer and define variable with full path to file
+	write_buffer = '{:30}'.format(file)
 	filename = 'RGBensemble/' + file
 
 	# Start timer
@@ -48,7 +52,13 @@ for file in star_list:
 	gp_backend.run_minimization(data, priors, plot=plot, module=module)
 
 	# Run MCMC
-	gp_backend.run_mcmc(data, priors, plot=plot, nwalkers=nwalkers, burnin=burnin, iterations=iterations, module=module)
+	final_pars = gp_backend.run_mcmc(data, priors, plot=plot, nwalkers=nwalkers, burnin=burnin, iterations=iterations, module=module)
+
+	write_buffer += '{:^16.6f}{:^16.6f}{:^16.6f}\n'.format(final_pars[0],final_pars[1],final_pars[2])
+	#write_buffer +=('{:10.6f}{:10}{:10.6f}\n'.format(final_pars[0],'',final_pars[1]))
+	z = open(results_file + '.results', 'a')
+	z.write(write_buffer)
+	z.close()
 
 	if plot:
 		for i in plt.get_fignums():

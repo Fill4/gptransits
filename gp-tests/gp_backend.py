@@ -13,7 +13,7 @@ import timeit
 import pyfits
 import scipy.stats
 import scipy.optimize as op
-from config_file import verbose, results_file
+from config_file import verbose
 
 # Gaussian processes libraries
 import george
@@ -86,12 +86,12 @@ def setup_george(pars):
 
 # Returns a GP object from the celerite module with the provided parameters pars
 def setup_celerite(pars):
-	#S0, w0, jitter = pars
-	S0, w0 = pars
+	S0, w0, jitter = pars
+	#S0, w0 = pars
 	Q = 1.0 / np.sqrt(2.0)
 	kernel = celerite.terms.SHOTerm(log_S0=np.log(S0), log_Q=np.log(Q), log_omega0=np.log(w0))
 	kernel.freeze_parameter("log_Q")
-	#kernel += celerite.terms.JitterTerm(log_sigma=np.log(jitter**2))
+	kernel += celerite.terms.JitterTerm(log_sigma=np.log(jitter**2))
 	gp = celerite.GP(kernel)
 	return gp
 
@@ -243,11 +243,6 @@ def run_mcmc(data, priors, plot=False, init_pars=None, nwalkers=20, burnin=500, 
 	verboseprint("Hyperparameters from MCMC:")
 	print_pars(final_pars, priors)
 
-	z = open(results_file + '.results', 'a')
-	z.write('{:10.6f}{:10}{:10.6f}{:6}{:10.6f}\n'.format(final_pars[0],'',final_pars[1],'',final_pars[2]))
-	#z.write('{:10.6f}{:10}{:10.6f}\n'.format(final_pars[0],'',final_pars[1]))
-	z.close()
-
 	# Set up the GP for this sample.
 	gp = setup_gp(final_pars, module)
 	gp.compute(phase, error)
@@ -287,3 +282,5 @@ def run_mcmc(data, priors, plot=False, init_pars=None, nwalkers=20, burnin=500, 
 		fig2 = corner.corner(samples, labels=labels, 
 							 quantiles=[0.5], show_titles=True, title_fmt='.6f',
 							 truths=final_pars, figsize=(15, 15))
+
+	return final_pars
