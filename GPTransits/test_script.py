@@ -12,7 +12,7 @@ diamonds = np.genfromtxt('diamonds.results')
 ############################################################################
 ############################################################################
 
-fig = plt.figure('Amplitude', figsize=(16, 12))
+fig = plt.figure('Amplitude', figsize=(14, 10))
 fig.suptitle(r'Amplitude $S_0$', fontsize=26)
 
 #------------------------------------
@@ -74,16 +74,16 @@ fig.subplots_adjust(top=0.92)
 #############################################################################
 #############################################################################
 
-fig2 = plt.figure('Timescale', figsize=(16, 12))
+fig2 = plt.figure('Timescale', figsize=(14, 10))
 fig2.suptitle(r'Timescale', fontsize=26)
 
 #------------------------------------
 
 ax1 = fig2.add_subplot(221)
-ax1.scatter(celerite_nojitter[:,2], diamonds[:,2], s=30)
+ax1.scatter(celerite_nojitter[:,2], diamonds[:,4], s=30)
 x = np.linspace(min(celerite_nojitter[:,2])*0.8, max(celerite_nojitter[:,2])*1.2, num=500)
 
-linreg = linregress(celerite_nojitter[:,2], diamonds[:,2])
+linreg = linregress(celerite_nojitter[:,2], diamonds[:,4])
 rvalue = linreg.rvalue
 ax1.plot(x, x*linreg.slope + linreg.intercept)
 
@@ -95,10 +95,10 @@ ax1.tick_params(axis='both', which='major', labelsize=14)
 #------------------------------------
 
 ax2 = fig2.add_subplot(222)
-ax2.scatter(celerite_kallinger[:,2], diamonds[:,2], s=30)
+ax2.scatter(celerite_kallinger[:,2], diamonds[:,4], s=30)
 x = np.linspace(min(celerite_kallinger[:,2])*0.8, max(celerite_kallinger[:,2])*1.2, num=500)
               
-linreg = linregress(celerite_kallinger[:,2], diamonds[:,2])
+linreg = linregress(celerite_kallinger[:,2], diamonds[:,4])
 rvalue = linreg.rvalue
 ax2.plot(x, x*linreg.slope + linreg.intercept)
               
@@ -110,10 +110,10 @@ ax2.tick_params(axis='both', which='major', labelsize=14)
 #------------------------------------
 
 ax3 = fig2.add_subplot(223)
-ax3.scatter(george_nojitter[:,2], diamonds[:,2], s=30)
-x = np.linspace(min(george_nojitter[:,2])*0.9, max(george_nojitter[:,2])*1.1, num=500)
+ax3.scatter((2*np.pi)/george_nojitter[:,2], diamonds[:,4], s=30)
+x = np.linspace(min((2*np.pi)/george_nojitter[:,2])*0.9, max((2*np.pi)/george_nojitter[:,2])*1.1, num=500)
 
-linreg = linregress(george_nojitter[:,2], diamonds[:,2])
+linreg = linregress((2*np.pi)/george_nojitter[:,2], diamonds[:,4])
 rvalue = linreg.rvalue
 ax3.plot(x, x*linreg.slope + linreg.intercept)
 
@@ -125,10 +125,10 @@ ax3.tick_params(axis='both', which='major', labelsize=14)
 #------------------------------------
               
 ax4 = fig2.add_subplot(224)
-ax4.scatter(george_expsq[:,2], diamonds[:,2], s=30)
-x = np.linspace(min(george_expsq[:,2])*0.9, max(george_expsq[:,2])*1.1, num=500)
+ax4.scatter((2*np.pi)/george_expsq[:,2], diamonds[:,4], s=30)
+x = np.linspace(min((2*np.pi)/george_expsq[:,2])*0.9, max((2*np.pi)/george_expsq[:,2])*1.1, num=500)
               
-linreg = linregress(george_expsq[:,2], diamonds[:,2])
+linreg = linregress((2*np.pi)/george_expsq[:,2], diamonds[:,4])
 rvalue = linreg.rvalue
 ax4.plot(x, x*linreg.slope + linreg.intercept)
               

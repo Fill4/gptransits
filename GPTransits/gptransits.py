@@ -31,7 +31,7 @@ if os.path.exists(results_file + '.results'):
     pass
 else:
 	z = open(results_file + '.results', 'w')
-	z.write('{:30}{:^16}{:^16}{:^16}\n'.format('Filename', 'Amplitude', 'Timescale', 'Jitter'))
+	z.write('{:30}{:^16}{:^16}{:^16}{:^16}\n'.format('Filename', 'Amplitude_1', 'Timescale_1', 'Amplitude_2', 'Timescale_2'))
 	z.close()
 
 for file in star_list:
@@ -60,8 +60,10 @@ for file in star_list:
 	# Run MCMC
 	final_pars = backend.run_mcmc(data, priors, plot=plot, nwalkers=nwalkers, burnin=burnin, iterations=iterations, module=module)
 
-	write_buffer += '{:^16.6f}{:^16.6f}{:^16.6f}\n'.format(final_pars[0],final_pars[1],final_pars[2])
+	write_buffer += '{:^16.6f}{:^16.6f}{:^16.6f}{:^16.6f}\n'.format(final_pars[0],final_pars[1],final_pars[2],final_pars[3])
+	#write_buffer += '{:^16.6f}{:^16.6f}{:^16.6f}\n'.format(final_pars[0],final_pars[1],final_pars[2])
 	#write_buffer +=('{:10.6f}{:10}{:10.6f}\n'.format(final_pars[0],'',final_pars[1]))
+	
 	z = open(results_file + '.results', 'a')
 	z.write(write_buffer)
 	z.close()
@@ -69,7 +71,7 @@ for file in star_list:
 	if plot:
 		for i in plt.get_fignums():
 			plt.figure(i)
-			plt.savefig('Figures/%s%s%d.png' % (os.path.splitext(os.path.basename(filename))[0], '_fig', i), dpi = 200)
+			plt.savefig('Figures/{}_{}_fig{}.png'.format(results_file, os.path.splitext(os.path.basename(filename))[0], i), dpi = 200)
 			plt.clf()
 			plt.cla()
 			plt.close()
