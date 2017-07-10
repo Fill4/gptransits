@@ -40,7 +40,7 @@ def readfits(filename, Nmax):
 	ind = np.logical_and(~np.isnan(ntime), ~np.isnan(nflux))
 	time = ntime[ind]
 	time = time - time[0]
-	flux = nflux[ind]/max(nflux[ind])
+	flux = nflux[ind]/np.median(nflux[ind])
 	error = nerror[ind]
 	flux = flux - np.mean(flux)
 
@@ -85,12 +85,19 @@ def setup_george(pars):
 
 # Returns a GP object from the celerite module with the provided parameters pars
 def setup_celerite(pars):
-	S0, w0, jitter = pars
+	S1, w1, S2, w2 = pars
+	#S0, w0, jitter = pars
 	#S0, w0 = pars
 	Q = 1.0 / np.sqrt(2.0)
-	kernel = celerite.terms.SHOTerm(log_S0=np.log(S0), log_Q=np.log(Q), log_omega0=np.log(w0))
-	kernel.freeze_parameter("log_Q")
-	kernel += celerite.terms.JitterTerm(log_sigma=np.log(jitter**2))
+	
+	kernel_1 = celerite.terms.SHOTerm(log_S0=np.log(S1), log_Q=np.log(Q), log_omega0=np.log(w1))
+	kernel_1.freeze_parameter("log_Q")
+	
+	kernel_2 = celerite.terms.SHOTerm(log_S0=np.log(S2), log_Q=np.log(Q), log_omega0=np.log(w2))
+	kernel_2.freeze_parameter("log_Q")
+
+	kernel = kernel_1 + kernel_2
+	#kernel += celerite.terms.JitterTerm(log_sigma=np.log(jitter**2))
 	gp = celerite.GP(kernel)
 	return gp
 
