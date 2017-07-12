@@ -46,7 +46,7 @@ for file in star_list:
 
 	# Bundle data in tuple for organisation
 	if filename.endswith('.fits'):
-		data = backend.readfits(filename, Nmax)
+		data = backend.readfits(filename, Nmax, fits_options)
 	else:
 		data = backend.readtxt(filename, Nmax)
 	#data = (time, flux, error)
@@ -60,7 +60,13 @@ for file in star_list:
 	# Run MCMC
 	final_pars = backend.run_mcmc(data, priors, plot=plot, nwalkers=nwalkers, burnin=burnin, iterations=iterations, module=module)
 
-	write_buffer += '{:^16.6f}{:^16.6f}{:^16.6f}{:^16.6f}\n'.format(final_pars[0],final_pars[1],final_pars[2],final_pars[3])
+	for i in range(len(final_pars)):
+		write_buffer += '{:^16.6f}'.format(final_pars[i])
+	write_buffer += '\n'
+
+	#write_buffer += '{:^16.6f}{:^16.6f}{:^16.6f}{:^16.6f}{:^16.6f}{:^16.6f}{:^16.6f}\n'.format(final_pars[0],final_pars[1],final_pars[2],final_pars[3],final_pars[4],final_pars[5],final_pars[6])
+	#write_buffer += '{:^16.6f}{:^16.6f}{:^16.6f}{:^16.6f}{:^16.6f}\n'.format(final_pars[0],final_pars[1],final_pars[2],final_pars[3], final_pars[4])
+	#write_buffer += '{:^16.6f}{:^16.6f}{:^16.6f}{:^16.6f}\n'.format(final_pars[0],final_pars[1],final_pars[2],final_pars[3])
 	#write_buffer += '{:^16.6f}{:^16.6f}{:^16.6f}\n'.format(final_pars[0],final_pars[1],final_pars[2])
 	#write_buffer +=('{:10.6f}{:10}{:10.6f}\n'.format(final_pars[0],'',final_pars[1]))
 	
@@ -71,7 +77,7 @@ for file in star_list:
 	if plot:
 		for i in plt.get_fignums():
 			plt.figure(i)
-			plt.savefig('Figures/{}_{}_fig{}.png'.format(results_file, os.path.splitext(os.path.basename(filename))[0], i), dpi = 200)
+			plt.savefig('Figures/{}_{}_fig{}.png'.format(results_file, os.path.splitext(os.path.basename(filename))[0], i), dpi = 500)
 			plt.clf()
 			plt.cla()
 			plt.close()
