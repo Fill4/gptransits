@@ -28,12 +28,12 @@ celerite_2kernel_large[:,4:7] = celerite_2kernel_large[:,4:7]*1e6/(24*3600*facto
 ############################################################################
 
 
-fig = plt.figure('Amplitude', figsize=(14, 10))
-fig.suptitle(r'Amplitude $S_0$', fontsize=26)
+fig = plt.figure('Amplitude_1', figsize=(15, 7))
+fig.suptitle(r'Amplitude $S_0$ - One Kernel', fontsize=26)
 
 #------------------------------------
 
-ax1 = fig.add_subplot(221)
+ax1 = fig.add_subplot(121)
 ax1.errorbar(celerite_1kernel[:,1], diamonds[:,1], xerr=[celerite_1kernel[:,2], celerite_1kernel[:,3]], yerr=[diamonds[:,2], diamonds[:,3]], fmt='ok', ecolor='b', capthick=2)
 #ax1.scatter(celerite_nojitter[:,1], diamonds[:,1], s=30)
 x = np.linspace(min(celerite_1kernel[:,1]*0.8), max(celerite_1kernel[:,1]*1.2), num=500)
@@ -41,15 +41,16 @@ x = np.linspace(min(celerite_1kernel[:,1]*0.8), max(celerite_1kernel[:,1]*1.2), 
 linreg = linregress(celerite_1kernel[:,1], diamonds[:,1])
 rvalue = linreg.rvalue
 ax1.plot(x, x*linreg.slope + linreg.intercept, 'r')
+print(linreg.slope)
 
-ax1.set_title('One Kernel - Diamonds 1 --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
+ax1.set_title('Diamonds 1 --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
 ax1.set_xlabel('GP (ppm)',fontsize=14)
 ax1.set_ylabel('DIAMONDS (ppm)',fontsize=14)
 ax1.tick_params(axis='both', which='major', labelsize=14)
 
 #------------------------------------
 
-ax2 = fig.add_subplot(222)
+ax2 = fig.add_subplot(122)
 ax2.errorbar(celerite_1kernel[:,1], diamonds2[:,1], xerr=[celerite_1kernel[:,2], celerite_1kernel[:,3]], yerr=[diamonds2[:,2], diamonds2[:,3]], fmt='ok', ecolor='b', capthick=2)
 #ax2.scatter(celerite_kallinger[:,1], diamonds[:,1], s=30)
 x = np.linspace(min(celerite_1kernel[:,1]*0.8), max(celerite_1kernel[:,1]*1.2), num=500)
@@ -57,15 +58,24 @@ x = np.linspace(min(celerite_1kernel[:,1]*0.8), max(celerite_1kernel[:,1]*1.2), 
 linreg = linregress(celerite_1kernel[:,1], diamonds2[:,1])
 rvalue = linreg.rvalue
 ax2.plot(x, x*linreg.slope + linreg.intercept, 'r')
+print(linreg.slope)
 
-ax2.set_title('One Kernel - Diamonds 2 --> - R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
+ax2.set_title('Diamonds 2 --> - R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
 ax2.set_xlabel('GP (ppm)',fontsize=14)
 ax2.set_ylabel('DIAMONDS (ppm)',fontsize=14)
 ax2.tick_params(axis='both', which='major', labelsize=14)
 
+fig.tight_layout()
+fig.subplots_adjust(top=0.85)
+plt.savefig('comparison_amp_1.png', dpi = 200)
+
 #------------------------------------
 
-ax3 = fig.add_subplot(223)
+fig2 = plt.figure('Amplitude_2', figsize=(15, 7))
+fig2.suptitle(r'Amplitude $S_0$ - Two Kernels', fontsize=26)
+
+
+ax3 = fig2.add_subplot(121)
 ax3.errorbar(celerite_2kernel_small[:,1], diamonds[:,1], xerr=[celerite_2kernel_small[:,2], celerite_2kernel_small[:,3]], yerr=[diamonds[:,2], diamonds[:,3]], fmt='ok', ecolor='b', capthick=2)
 #ax2.scatter(celerite_kallinger[:,1], diamonds[:,1], s=30)
 x = np.linspace(min(celerite_2kernel_small[:,1]*0.8), max(celerite_2kernel_small[:,1]*1.2), num=500)
@@ -73,15 +83,16 @@ x = np.linspace(min(celerite_2kernel_small[:,1]*0.8), max(celerite_2kernel_small
 linreg = linregress(celerite_2kernel_small[:,1], diamonds[:,1])
 rvalue = linreg.rvalue
 ax3.plot(x, x*linreg.slope + linreg.intercept, 'r')
+print(linreg.slope)
 
-ax3.set_title('Two Kernels Small - Diamonds 1 --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
+ax3.set_title('Small Kernel - Diamonds 1 --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
 ax3.set_xlabel('GP (ppm)',fontsize=14)
 ax3.set_ylabel('DIAMONDS (ppm)',fontsize=14)
 ax3.tick_params(axis='both', which='major', labelsize=14)
 
 #------------------------------------
 
-ax4 = fig.add_subplot(224)
+ax4 = fig2.add_subplot(122)
 ax4.errorbar(celerite_2kernel_large[:,1], diamonds2[:,1], xerr=[celerite_2kernel_large[:,2], celerite_2kernel_large[:,3]], yerr=[diamonds2[:,2], diamonds2[:,3]], fmt='ok', ecolor='b', capthick=2)
 #ax2.scatter(celerite_kallinger[:,1], diamonds[:,1], s=30)
 x = np.linspace(min(celerite_2kernel_large[:,1]*0.8), max(celerite_2kernel_large[:,1]*1.2), num=500)
@@ -89,89 +100,99 @@ x = np.linspace(min(celerite_2kernel_large[:,1]*0.8), max(celerite_2kernel_large
 linreg = linregress(celerite_2kernel_large[:,1], diamonds2[:,1])
 rvalue = linreg.rvalue
 ax4.plot(x, x*linreg.slope + linreg.intercept, 'r')
+print(linreg.slope)
 
-ax4.set_title('Two Kernels Large - Diamonds 2 --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
+ax4.set_title('Large Kernel - Diamonds 2 --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
 ax4.set_xlabel('GP (ppm)',fontsize=14)
 ax4.set_ylabel('DIAMONDS (ppm)',fontsize=14)
 ax4.tick_params(axis='both', which='major', labelsize=14)
 
 #------------------------------------
 
-fig.tight_layout()
-fig.subplots_adjust(top=0.92)
-#plt.show()
-
+fig2.tight_layout()
+fig2.subplots_adjust(top=0.85)
+plt.savefig('comparison_amp_2.png', dpi = 200)
 
 #############################################################################
 #############################################################################
 ########################################
 
-
-fig2 = plt.figure('Frequency', figsize=(14, 10))
-fig2.suptitle(r'Characteristic Frequency', fontsize=26)
+fig3 = plt.figure('Frequency_1', figsize=(15, 7))
+fig3.suptitle(r'Characteristic Frequency $\omega_0$ - One Kernel', fontsize=26)
 
 #------------------------------------
 
-ax1 = fig2.add_subplot(221)
+ax1 = fig3.add_subplot(121)
 ax1.errorbar(celerite_1kernel[:,4], diamonds[:,4], xerr=[celerite_1kernel[:,5], celerite_1kernel[:,6]], yerr=[diamonds[:,5], diamonds[:,6]], fmt='ok', ecolor='b', capthick=2)
 x = np.linspace(min(celerite_1kernel[:,4]*0.8), max(celerite_1kernel[:,4]*1.2), num=500)
 
 linreg = linregress(celerite_1kernel[:,4], diamonds[:,4])
 rvalue = linreg.rvalue
 ax1.plot(x, x*linreg.slope + linreg.intercept, 'r')
+print(linreg.slope)
 
-ax1.set_title('One Kernel - Diamonds 1 --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
+ax1.set_title('Diamonds 1 --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
 ax1.set_xlabel(r'GP ($\mu$Hz)',fontsize=14)
 ax1.set_ylabel(r'DIAMONDS ($\mu$Hz)',fontsize=14)
 ax1.tick_params(axis='both', which='major', labelsize=14)
 
 #------------------------------------
 
-ax2 = fig2.add_subplot(222)
+ax2 = fig3.add_subplot(122)
 ax2.errorbar(celerite_1kernel[:,4], diamonds2[:,4], xerr=[celerite_1kernel[:,5], celerite_1kernel[:,6]], yerr=[diamonds2[:,5], diamonds2[:,6]], fmt='ok', ecolor='b', capthick=2)
 x = np.linspace(min(celerite_1kernel[:,4]*0.8), max(celerite_1kernel[:,4]*1.2), num=500)
 
 linreg = linregress(celerite_1kernel[:,4], diamonds2[:,4])
 rvalue = linreg.rvalue
 ax2.plot(x, x*linreg.slope + linreg.intercept, 'r')
+print(linreg.slope)
               
-ax2.set_title('One Kernel - Diamonds 2 --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
+ax2.set_title('Diamonds 2 --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
 ax2.set_xlabel(r'GP ($\mu$Hz)',fontsize=14)
 ax2.set_ylabel(r'DIAMONDS ($\mu$Hz)',fontsize=14)
 ax2.tick_params(axis='both', which='major', labelsize=14)
 
+fig3.tight_layout()
+fig3.subplots_adjust(top=0.85)
+plt.savefig('comparison_freq_1.png', dpi = 200)
+
 #------------------------------------
 
-ax3 = fig2.add_subplot(223)
+fig4 = plt.figure('Frequency_2', figsize=(15, 7))
+fig4.suptitle(r'Characteristic Frequency $\omega_0$ - Two Kernels', fontsize=26)
+
+ax3 = fig4.add_subplot(121)
 ax3.errorbar(celerite_2kernel_small[:,4], diamonds[:,4], xerr=[celerite_2kernel_small[:,5], celerite_2kernel_small[:,6]], yerr=[diamonds[:,5], diamonds[:,6]], fmt='ok', ecolor='b', capthick=2)
 x = np.linspace(min(celerite_2kernel_small[:,4]*0.8), max(celerite_2kernel_small[:,4]*1.2), num=500)
 
 linreg = linregress(celerite_2kernel_small[:,4], diamonds[:,4])
 rvalue = linreg.rvalue
 ax3.plot(x, x*linreg.slope + linreg.intercept, 'r')
+print(linreg.slope)
 
-ax3.set_title('Two Kernels Small - Diamonds 1 --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
+ax3.set_title('Small Kernel - Diamonds 1 --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
 ax3.set_xlabel(r'GP ($\mu$Hz)',fontsize=14)
 ax3.set_ylabel(r'DIAMONDS ($\mu$Hz)',fontsize=14)
 ax3.tick_params(axis='both', which='major', labelsize=14)
 
 #------------------------------------
               
-ax4 = fig2.add_subplot(224)
+ax4 = fig4.add_subplot(122)
 ax4.errorbar(celerite_2kernel_large[:,4], diamonds2[:,4], xerr=[celerite_2kernel_large[:,5], celerite_2kernel_large[:,6]], yerr=[diamonds2[:,5], diamonds2[:,6]], fmt='ok', ecolor='b', capthick=2)
 x = np.linspace(min(celerite_2kernel_large[:,4]*0.8), max(celerite_2kernel_large[:,4]*1.2), num=500)
 
 linreg = linregress(celerite_2kernel_large[:,4], diamonds2[:,4])
 rvalue = linreg.rvalue
 ax4.plot(x, x*linreg.slope + linreg.intercept, 'r')
+print(linreg.slope)
               
-ax4.set_title('Two Kernels Large - Diamonds 2 --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
+ax4.set_title('Large Kernel - Diamonds 2 --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
 ax4.set_xlabel(r'GP ($\mu$Hz)',fontsize=14)
 ax4.set_ylabel(r'DIAMONDS ($\mu$Hz)',fontsize=14)
 ax4.tick_params(axis='both', which='major', labelsize=14)
 
 #------------------------------------
               
-fig2.tight_layout()
-fig2.subplots_adjust(top=0.92)
-plt.show()
+fig4.tight_layout()
+fig4.subplots_adjust(top=0.85)
+plt.savefig('comparison_freq_2.png', dpi = 200)
