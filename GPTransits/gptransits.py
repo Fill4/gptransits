@@ -77,7 +77,7 @@ for file in star_list:
 	if plot:
 		for i in plt.get_fignums():
 			plt.figure(i)
-			plt.savefig('Figures/{}_{}_fig{}.png'.format(results_file, os.path.splitext(os.path.basename(filename))[0], i), dpi = 500)
+			plt.savefig('Figures/{}_{}_fig{}.png'.format(results_file, os.path.splitext(os.path.basename(filename))[0], i), dpi = 200)
 			plt.clf()
 			plt.cla()
 			plt.close()

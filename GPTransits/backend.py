@@ -56,16 +56,18 @@ def readfits(filename, Nmax, fits_options):
 def readtxt(filename, Nmax):
 	buffer = np.loadtxt(filename)
 
-	ntime = buffer[:Nmax,0]
-	nflux = buffer[:Nmax,1]
-	nerror = buffer[:Nmax,2]
-	nerror[~np.isfinite(nerror)] = 10
+	ntime = buffer[1000:Nmax+1000,0]
+	nflux = buffer[1000:Nmax+1000,1]
+	nerror = buffer[1000:Nmax+1000,2]
+	#nerror[~np.isfinite(nerror)] = 10
 
-	ind = np.logical_and(~np.isnan(ntime), ~np.isnan(nflux))
+	ind = np.logical_and(~np.isnan(ntime), ~np.isnan(nflux), ~np.isnan(nerror))
 	time = ntime[ind]
 	time = time - time[0]
-	flux = nflux[ind]/1e6
-	error = (np.median(nflux[ind]) * np.random.uniform(low=0.15,high=0.25,size=len(flux)))/1e6
+	flux = nflux[ind]/np.median(nflux[ind])
+	error = nerror[ind]/np.median(nflux[ind])
+	flux = (flux - 1)*1e6
+	error = error*1e6
 	
 	#flux = (flux - 1)*1e6
 	#error = error*1e6
@@ -88,11 +90,11 @@ def setup_gp(pars, module='george'):
 	
 # Returns a GP object from the george module with the provided parameters pars
 def setup_george(pars):
-	t1, t2, jitter = pars
-	#t1, t2 = pars
+	#t1, t2, jitter = pars
+	t1, t2 = pars
 	k1 = t1**2 * george.kernels.ExpSquaredKernel(t2**2)
-	k2 = george.kernels.WhiteKernel(jitter**2)
-	kernel = k1 + k2
+	#k2 = george.kernels.WhiteKernel(jitter**2)
+	kernel = k1 #+ k2
 	gp = george.GP(kernel)
 	return gp
 
@@ -224,7 +226,7 @@ def run_minimization(data, priors, plot=False, init_pars=None, module='george'):
 	if plot:
 
 		# Plotting the results from the minimization method
-		fig = plt.figure("Minimization Method", figsize=(12, 12))
+		fig = plt.figure("Minimization Method", figsize=(14, 14))
 		ax1 = fig.add_subplot(211)
 		ax2 = fig.add_subplot(212)
 		# Plot initial data with errors in both subplots
@@ -298,7 +300,7 @@ def run_mcmc(data, priors, plot=False, init_pars=None, nwalkers=20, burnin=500, 
 	if plot:
 
 		# Plotting the results from the MCMC method
-		fig1 = plt.figure("MCMC Method", figsize=(12, 12))
+		fig1 = plt.figure("MCMC Method", figsize=(14, 14))
 		ax1 = fig1.add_subplot(211)
 		ax2 = fig1.add_subplot(212)
 		# Plot initial data with errors in both subplots
@@ -314,22 +316,22 @@ def run_mcmc(data, priors, plot=False, init_pars=None, nwalkers=20, burnin=500, 
 		ax1.fill_between(x, mu+3*std, mu-3*std, color="#ff7f0e", alpha=0.15, edgecolor="none", label= '3 sigma', linewidth=0.5)
 		ax1.fill_between(x, mu+2*std, mu-2*std, color="#ff7f0e", alpha=0.3, edgecolor="none", label= '2 sigma', linewidth=0.5)
 		ax1.fill_between(x, mu+std, mu-std, color="#ff7f0e", alpha=0.5, edgecolor="none", label= '1 sigma', linewidth=0.5)
-		ax1.title.set_text("Probability distribution for the gaussian process with the parameters from the MCMC")
-		ax1.set_ylabel('Flux')
+		ax1.set_title("Probability distribution for the gaussian process with the parameters from the MCMC",fontsize=15)
+		ax1.set_ylabel('Flux[ppm]',fontsize=16)
 		ax1.legend(loc='upper left')
 		# Compute the prediction conditioned on the observations and plot it.
 		# Plot sample from the conditional ditribution in lower plot
 		#m = gp.sample_conditional(flux, x)
 		#ax2.plot(x, m, color="#4682b4", label= 'Sample')
 		ax2.plot(x, np.random.normal(loc=mu, scale=std), color="#4682b4", label='Sample')
-		ax2.title.set_text("Sample drawn from the probability distribution above")
-		ax2.set_xlabel('Time')	
-		ax2.set_ylabel('Flux')
+		ax2.set_title("Sample drawn from the probability distribution above",fontsize=16)
+		ax2.set_xlabel('Time [days]',fontsize=16)	
+		ax2.set_ylabel('Flux [ppm]',fontsize=16)
 		ax2.legend(loc='upper left')
 
 		labels = [priors[i][0] for i in priors]
 		fig2 = corner.corner(samples, labels=labels, 
-							 quantiles=[0.5], show_titles=True, title_fmt='.6f',
+							 quantiles=[0.5], show_titles=True, title_fmt='.3f',
 							 truths=final_pars, figsize=(15, 15))
 
 	return final_pars
