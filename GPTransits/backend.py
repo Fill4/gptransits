@@ -28,21 +28,28 @@ if verbose:
 else:   
 	verboseprint = lambda *a: None # do-nothing function
 
-def readfits(filename, Nmax):
+def readfits(filename, Nmax, fits_options):
 	# Read data from fits and remove nans
 	hdulist = pyfits.open(filename)
 
-	ntime = getattr(hdulist[1].data, fits_options['time'])[:Nmax]
-	nflux = getattr(hdulist[1].data, fits_options['flux'])[:Nmax]
-	nerror = getattr(hdulist[1].data, fits_options['error'])[:Nmax]
-	nerror[~np.isfinite(nerror)] = 1e-5
+	ntime = getattr(hdulist[1].data, fits_options['time'])[1000:Nmax+1000]
+	nflux = getattr(hdulist[1].data, fits_options['flux'])[1000:Nmax+1000]
+	nerror = getattr(hdulist[1].data, fits_options['error'])[1000:Nmax+1000]
+	#nerror[~np.isfinite(nerror)] = 10
 
-	ind = np.logical_and(~np.isnan(ntime), ~np.isnan(nflux))
+	ind = np.logical_and(~np.isnan(ntime), ~np.isnan(nflux), ~np.isnan(nerror))
 	time = ntime[ind]
 	time = time - time[0]
 	flux = nflux[ind]/np.median(nflux[ind])
-	error = nerror[ind]
-	flux = flux - np.mean(flux)
+	error = nerror[ind]/np.median(nflux[ind])
+	flux = (flux - 1)*1e6
+	error = error*1e6
+	#flux = nflux[ind]
+
+	#print(len(getattr(hdulist[1].data, fits_options['time'])))
+	#plt.errorbar(time, flux, yerr=error, fmt=".k", capsize=0)
+	#plt.show()
+	#sys.exit()
 
 	return (time, flux, error)
 
@@ -52,14 +59,20 @@ def readtxt(filename, Nmax):
 	ntime = buffer[:Nmax,0]
 	nflux = buffer[:Nmax,1]
 	nerror = buffer[:Nmax,2]
-	nerror[~np.isfinite(nerror)] = 1e-5
+	nerror[~np.isfinite(nerror)] = 10
 
 	ind = np.logical_and(~np.isnan(ntime), ~np.isnan(nflux))
 	time = ntime[ind]
 	time = time - time[0]
-	flux = nflux[ind]/max(nflux[ind])
-	error = nerror[ind]
-	flux = flux - np.mean(flux)
+	flux = nflux[ind]/1e6
+	error = (np.median(nflux[ind]) * np.random.uniform(low=0.15,high=0.25,size=len(flux)))/1e6
+	
+	#flux = (flux - 1)*1e6
+	#error = error*1e6
+
+	#plt.errorbar(time, flux, yerr=error, fmt=".k", capsize=0)
+	#plt.show()
+	#sys.exit()
 
 	return (time, flux, error)
 
@@ -85,19 +98,44 @@ def setup_george(pars):
 
 # Returns a GP object from the celerite module with the provided parameters pars
 def setup_celerite(pars):
-	S1, w1, S2, w2 = pars
-	#S0, w0, jitter = pars
-	#S0, w0 = pars
-	Q = 1.0 / np.sqrt(2.0)
+	#S1, w1, S2, w2, S3, w3, S4, w4, jitter = pars
+	#S1, w1, S2, w2, S3, w3, S4, w4 = pars
+	#S1, w1, S2, w2, S3, w3, jitter = pars
+	#S1, w1, S2, w2, S3, w3 = pars
+	#S1, w1, S2, w2, jitter = pars
+	#S1, w1, S2, w2 = pars
+	#S1, w1, jitter = pars
+	S1, w1 = pars
 	
+	Q = 1.0 / np.sqrt(2.0)
+	terms = []
+	
+	'''
+	for i in range(int(np.floor(len(pars)/2))):
+		kernel_temp = celerite.terms.SHOTerm(log_S0=np.log(pars[i*2]), log_Q=np.log(Q) , log_omega0=np.log(i*2+1))
+		kernel_temp.freeze_parameter("log_Q")
+		terms.append(kernel_temp)
+	if len(pars)%2 == 1:
+		terms.append(celerite.terms.JitterTerm(log_sigma=np.log(pars[-1])))
+	kernel = terms[0]+terms[1]+terms[2]+terms[3]
+	'''
+	
+	#'''
 	kernel_1 = celerite.terms.SHOTerm(log_S0=np.log(S1), log_Q=np.log(Q), log_omega0=np.log(w1))
 	kernel_1.freeze_parameter("log_Q")
-	
-	kernel_2 = celerite.terms.SHOTerm(log_S0=np.log(S2), log_Q=np.log(Q), log_omega0=np.log(w2))
-	kernel_2.freeze_parameter("log_Q")
+	#kernel_2 = celerite.terms.SHOTerm(log_S0=np.log(S2), log_Q=np.log(Q), log_omega0=np.log(w2))
+	#kernel_2.freeze_parameter("log_Q")
+	#kernel_3 = celerite.terms.SHOTerm(log_S0=np.log(S3), log_Q=np.log(Q), log_omega0=np.log(w3))
+	#kernel_3.freeze_parameter("log_Q")
+	#kernel_4 = celerite.terms.SHOTerm(log_S0=np.log(S3), log_Q=np.log(Q), log_omega0=np.log(w3))
+	#kernel_4.freeze_parameter("log_Q")
 
-	kernel = kernel_1 + kernel_2
-	#kernel += celerite.terms.JitterTerm(log_sigma=np.log(jitter**2))
+	kernel = kernel_1 #+ kernel_2 #+ kernel_3 #+ kernel_4
+	#kernel += celerite.terms.JitterTerm(log_sigma=np.log(jitter))
+	#'''
+	
+	#print(terms)
+	#print(kernel.get_parameter_dict())
 	gp = celerite.GP(kernel)
 	return gp
 
@@ -190,17 +228,18 @@ def run_minimization(data, priors, plot=False, init_pars=None, module='george'):
 		ax1 = fig.add_subplot(211)
 		ax2 = fig.add_subplot(212)
 		# Plot initial data with errors in both subplots
-		ax1.errorbar(phase, flux, yerr=error, fmt=".k", capsize=0, label= 'Flux')
-		ax2.errorbar(phase, flux, yerr=error, fmt=".k", capsize=0, label= 'Flux')
-		x = np.linspace(min(phase), max(phase), len(phase)*5)
+		ax1.errorbar(phase, flux, yerr=error, fmt=".k", capsize=0, label= 'Flux', markersize='3', elinewidth=1)
+		ax2.errorbar(phase, flux, yerr=error, fmt=".k", capsize=0, label= 'Flux', markersize='3', elinewidth=1)
+		numpoints = (max(phase)-min(phase))/(1.0/48.0)
+		x = np.linspace(min(phase), max(phase), numpoints)
 		# Plot conditional predictive distribution of the model in upper plot
 		mu, cov = gp.predict(flux, x)
 		std = np.sqrt(np.diag(cov))
 		std = np.nan_to_num(std)
-		ax1.plot(x, mu, color="#ff7f0e", label= 'Mean distribution GP')
-		ax1.fill_between(x, mu+3*std, mu-3*std, color="#ff7f0e", alpha=0.2, edgecolor="none", label= '3 sigma')
-		ax1.fill_between(x, mu+2*std, mu-2*std, color="#ff7f0e", alpha=0.4, edgecolor="none", label= '2 sigma')
-		ax1.fill_between(x, mu+std, mu-std, color="#ff7f0e", alpha=0.6, edgecolor="none", label= '1 sigma')
+		ax1.plot(x, mu, color="#ff7f0e", label= 'Mean distribution GP', linewidth=0.3)
+		ax1.fill_between(x, mu+3*std, mu-3*std, color="#ff7f0e", alpha=0.15, edgecolor="none", label= '3 sigma', linewidth=0.5)
+		ax1.fill_between(x, mu+2*std, mu-2*std, color="#ff7f0e", alpha=0.3, edgecolor="none", label= '2 sigma', linewidth=0.5)
+		ax1.fill_between(x, mu+std, mu-std, color="#ff7f0e", alpha=0.5, edgecolor="none", label= '1 sigma', linewidth=0.5)
 		ax1.title.set_text("Probability distribution for the gaussian process with the parameters from the minimization")
 		ax1.set_ylabel('Flux')
 		ax1.legend(loc='upper left')
@@ -249,6 +288,9 @@ def run_mcmc(data, priors, plot=False, init_pars=None, nwalkers=20, burnin=500, 
 	verboseprint("Hyperparameters from MCMC:")
 	print_pars(final_pars, priors)
 
+	# Testing forced result
+	#final_pars = (175.0, 12.0)
+
 	# Set up the GP for this sample.
 	gp = setup_gp(final_pars, module)
 	gp.compute(phase, error)
@@ -260,17 +302,18 @@ def run_mcmc(data, priors, plot=False, init_pars=None, nwalkers=20, burnin=500, 
 		ax1 = fig1.add_subplot(211)
 		ax2 = fig1.add_subplot(212)
 		# Plot initial data with errors in both subplots
-		ax1.errorbar(phase, flux, yerr=error, fmt=".k", capsize=0, label= 'Flux')
-		ax2.errorbar(phase, flux, yerr=error, fmt=".k", capsize=0, label= 'Flux')
-		x = np.linspace(min(phase), max(phase), len(phase)*5)
+		ax1.errorbar(phase, flux, yerr=error, fmt=".k", capsize=0, label= 'Flux', markersize='3', elinewidth=1)
+		ax2.errorbar(phase, flux, yerr=error, fmt=".k", capsize=0, label= 'Flux', markersize='3', elinewidth=1)
+		numpoints = (max(phase)-min(phase))/(1.0/48.0)
+		x = np.linspace(min(phase), max(phase), num=numpoints)
 		# Plot conditional predictive distribution of the model in upper plot
 		mu, cov = gp.predict(flux, x)
 		std = np.sqrt(np.diag(cov))
 		std = np.nan_to_num(std)
-		ax1.plot(x, mu, color="#ff7f0e", label= 'Mean distribution GP')
-		ax1.fill_between(x, mu+3*std, mu-3*std, color="#ff7f0e", alpha=0.2, edgecolor="none", label= '3 sigma')
-		ax1.fill_between(x, mu+2*std, mu-2*std, color="#ff7f0e", alpha=0.4, edgecolor="none", label= '2 sigma')
-		ax1.fill_between(x, mu+std, mu-std, color="#ff7f0e", alpha=0.6, edgecolor="none", label= '1 sigma')
+		ax1.plot(x, mu, color="#ff7f0e", label= 'Mean distribution GP', linewidth=0.3)
+		ax1.fill_between(x, mu+3*std, mu-3*std, color="#ff7f0e", alpha=0.15, edgecolor="none", label= '3 sigma', linewidth=0.5)
+		ax1.fill_between(x, mu+2*std, mu-2*std, color="#ff7f0e", alpha=0.3, edgecolor="none", label= '2 sigma', linewidth=0.5)
+		ax1.fill_between(x, mu+std, mu-std, color="#ff7f0e", alpha=0.5, edgecolor="none", label= '1 sigma', linewidth=0.5)
 		ax1.title.set_text("Probability distribution for the gaussian process with the parameters from the MCMC")
 		ax1.set_ylabel('Flux')
 		ax1.legend(loc='upper left')
