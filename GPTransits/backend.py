@@ -105,9 +105,9 @@ def setup_celerite(pars):
 	#S1, w1, S2, w2, S3, w3, jitter = pars
 	#S1, w1, S2, w2, S3, w3 = pars
 	#S1, w1, S2, w2, jitter = pars
-	#S1, w1, S2, w2 = pars
+	S1, w1, S2, w2 = pars
 	#S1, w1, jitter = pars
-	S1, w1 = pars
+	#S1, w1 = pars
 	
 	Q = 1.0 / np.sqrt(2.0)
 	terms = []
@@ -125,14 +125,14 @@ def setup_celerite(pars):
 	#'''
 	kernel_1 = celerite.terms.SHOTerm(log_S0=np.log(S1), log_Q=np.log(Q), log_omega0=np.log(w1))
 	kernel_1.freeze_parameter("log_Q")
-	#kernel_2 = celerite.terms.SHOTerm(log_S0=np.log(S2), log_Q=np.log(Q), log_omega0=np.log(w2))
-	#kernel_2.freeze_parameter("log_Q")
+	kernel_2 = celerite.terms.SHOTerm(log_S0=np.log(S2), log_Q=np.log(Q), log_omega0=np.log(w2))
+	kernel_2.freeze_parameter("log_Q")
 	#kernel_3 = celerite.terms.SHOTerm(log_S0=np.log(S3), log_Q=np.log(Q), log_omega0=np.log(w3))
 	#kernel_3.freeze_parameter("log_Q")
 	#kernel_4 = celerite.terms.SHOTerm(log_S0=np.log(S3), log_Q=np.log(Q), log_omega0=np.log(w3))
 	#kernel_4.freeze_parameter("log_Q")
 
-	kernel = kernel_1 #+ kernel_2 #+ kernel_3 #+ kernel_4
+	kernel = kernel_1 + kernel_2 #+ kernel_3 #+ kernel_4
 	#kernel += celerite.terms.JitterTerm(log_sigma=np.log(jitter))
 	#'''
 	
@@ -300,34 +300,35 @@ def run_mcmc(data, priors, plot=False, init_pars=None, nwalkers=20, burnin=500, 
 	if plot:
 
 		# Plotting the results from the MCMC method
-		fig1 = plt.figure("MCMC Method", figsize=(14, 14))
-		ax1 = fig1.add_subplot(211)
-		ax2 = fig1.add_subplot(212)
+		fig1 = plt.figure("MCMC Method", figsize=(14, 7))
+		ax1 = fig1.add_subplot(111)
+		#ax2 = fig1.add_subplot(212)
 		# Plot initial data with errors in both subplots
 		ax1.errorbar(phase, flux, yerr=error, fmt=".k", capsize=0, label= 'Flux', markersize='3', elinewidth=1)
-		ax2.errorbar(phase, flux, yerr=error, fmt=".k", capsize=0, label= 'Flux', markersize='3', elinewidth=1)
+		#ax2.errorbar(phase, flux, yerr=error, fmt=".k", capsize=0, label= 'Flux', markersize='3', elinewidth=1)
 		numpoints = (max(phase)-min(phase))/(1.0/48.0)
 		x = np.linspace(min(phase), max(phase), num=numpoints)
 		# Plot conditional predictive distribution of the model in upper plot
 		mu, cov = gp.predict(flux, x)
 		std = np.sqrt(np.diag(cov))
 		std = np.nan_to_num(std)
-		ax1.plot(x, mu, color="#ff7f0e", label= 'Mean distribution GP', linewidth=0.3)
-		ax1.fill_between(x, mu+3*std, mu-3*std, color="#ff7f0e", alpha=0.15, edgecolor="none", label= '3 sigma', linewidth=0.5)
-		ax1.fill_between(x, mu+2*std, mu-2*std, color="#ff7f0e", alpha=0.3, edgecolor="none", label= '2 sigma', linewidth=0.5)
-		ax1.fill_between(x, mu+std, mu-std, color="#ff7f0e", alpha=0.5, edgecolor="none", label= '1 sigma', linewidth=0.5)
-		ax1.set_title("Probability distribution for the gaussian process with the parameters from the MCMC",fontsize=15)
+		ax1.plot(x, mu, color="#ff7f0e", label= 'Mean distribution GP', linewidth=0.5)
+		#ax1.fill_between(x, mu+3*std, mu-3*std, color="#ff7f0e", alpha=0.15, edgecolor="none", label= '3 sigma', linewidth=0.5)
+		#ax1.fill_between(x, mu+2*std, mu-2*std, color="#ff7f0e", alpha=0.3, edgecolor="none", label= '2 sigma', linewidth=0.5)
+		ax1.fill_between(x, mu+std, mu-std, color="#ff7f0e", alpha=0.6, edgecolor="none", label= '1 sigma', linewidth=0.6)
+		#ax1.set_title("Probability distribution for the gaussian process with the parameters from the MCMC",fontsize=16)
 		ax1.set_ylabel('Flux[ppm]',fontsize=16)
-		ax1.legend(loc='upper left')
+		ax1.tick_params(axis='both', which='major', labelsize=16)
+		ax1.legend(loc='upper left', fontsize=15)
 		# Compute the prediction conditioned on the observations and plot it.
 		# Plot sample from the conditional ditribution in lower plot
 		#m = gp.sample_conditional(flux, x)
 		#ax2.plot(x, m, color="#4682b4", label= 'Sample')
-		ax2.plot(x, np.random.normal(loc=mu, scale=std), color="#4682b4", label='Sample')
-		ax2.set_title("Sample drawn from the probability distribution above",fontsize=16)
-		ax2.set_xlabel('Time [days]',fontsize=16)	
-		ax2.set_ylabel('Flux [ppm]',fontsize=16)
-		ax2.legend(loc='upper left')
+		#ax2.plot(x, np.random.normal(loc=mu, scale=std), color="#4682b4", label='Sample')
+		#ax2.set_title("Sample drawn from the probability distribution above",fontsize=16)
+		ax1.set_xlabel('Time [days]',fontsize=15)	
+		#ax2.set_ylabel('Flux [ppm]',fontsize=18)
+		#ax2.legend(loc='upper left')
 
 		labels = [priors[i][0] for i in priors]
 		fig2 = corner.corner(samples, labels=labels, 
