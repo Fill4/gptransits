@@ -7,7 +7,7 @@ Configuration file for the gp-tests methods
 filename = 'kplr008366239_mast.fits'
 filelist = 'kiclist.dat'
 # Filename where to write or append the results
-results_file = 'temp_celerite'
+results_file = 'poster_celerite'
 
 # Keywords for the fits file data
 fits_options = {}
@@ -18,9 +18,9 @@ fits_options['error'] = 'PDCSAP_FLUX_ERR'
 # Settings for defining the priors for all parameters
 prior_settings = {}
 prior_settings[0] = [r'$A_1$', 'uniform', 0.0, 2000.0]
-prior_settings[1] = [r'$\omega_{0,1}$', 'uniform', 0.0, 100.0]
-#prior_settings[2] = ['Amplitude_2', 'uniform', 0.0, 6000.0]
-#prior_settings[3] = ['Timescale_2', 'uniform', 4.0, 30.0]
+prior_settings[1] = [r'$\omega_{0,1}$', 'uniform', 32.0, 120.0]
+prior_settings[2] = ['Amplitude_2', 'uniform', 0.0, 3000.0]
+prior_settings[3] = ['Timescale_2', 'uniform', 4.0, 32.0]
 #prior_settings[4] = ['Amplitude_3', 'uniform', 0.0, 50000.0]
 #prior_settings[5] = ['Timescale_3', 'uniform', 0.0, 0.5]
 #prior_settings[6] = ['Amplitude_4', 'uniform', 0.0, 0200.0]

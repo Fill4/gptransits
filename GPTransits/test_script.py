@@ -11,17 +11,17 @@ celerite_2kernel_large =  np.genfromtxt('celerite_mast_2kernel_large.results')
 diamonds = np.genfromtxt('diamonds.results')
 diamonds2 = np.genfromtxt('diamonds2.results')
 
-#factor = np.pi*2
-factor = 1
+factor = np.pi*2
+#factor = 1
 
 # Normalization
-celerite_1kernel[:,1:4] = np.sqrt(celerite_1kernel[:,1:4]*celerite_1kernel[:,1:4])
+celerite_1kernel[:,1:4] = np.sqrt(celerite_1kernel[:,1:4]*celerite_1kernel[:,1:4]/(4*np.pi**(1/4)))
 celerite_1kernel[:,4:7] = celerite_1kernel[:,4:7]*1e6/(24*3600*factor)
 
-celerite_2kernel_small[:,1:4] = np.sqrt(celerite_2kernel_small[:,1:4]*celerite_2kernel_small[:,1:4])
+celerite_2kernel_small[:,1:4] = np.sqrt(celerite_2kernel_small[:,1:4]*celerite_2kernel_small[:,1:4]/(4*np.pi**(1/4)))
 celerite_2kernel_small[:,4:7] = celerite_2kernel_small[:,4:7]*1e6/(24*3600*factor)
 
-celerite_2kernel_large[:,1:4] = np.sqrt(celerite_2kernel_large[:,1:4]*celerite_2kernel_large[:,1:4])
+celerite_2kernel_large[:,1:4] = np.sqrt(celerite_2kernel_large[:,1:4]*celerite_2kernel_large[:,1:4]/(4*np.pi**(1/4)))
 celerite_2kernel_large[:,4:7] = celerite_2kernel_large[:,4:7]*1e6/(24*3600*factor)
 
 ############################################################################
@@ -41,6 +41,7 @@ x = np.linspace(min(celerite_1kernel[:,1]*0.8), max(celerite_1kernel[:,1]*1.2), 
 linreg = linregress(celerite_1kernel[:,1], diamonds[:,1])
 rvalue = linreg.rvalue
 ax1.plot(x, x*linreg.slope + linreg.intercept, 'r')
+ax1.plot(x, x, 'r--')
 print(linreg.slope)
 
 ax1.set_title('Diamonds 1 --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
@@ -58,6 +59,7 @@ x = np.linspace(min(celerite_1kernel[:,1]*0.8), max(celerite_1kernel[:,1]*1.2), 
 linreg = linregress(celerite_1kernel[:,1], diamonds2[:,1])
 rvalue = linreg.rvalue
 ax2.plot(x, x*linreg.slope + linreg.intercept, 'r')
+ax1.plot(x, x, 'r--')
 print(linreg.slope)
 
 ax2.set_title('Diamonds 2 --> - R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
@@ -83,6 +85,7 @@ x = np.linspace(min(celerite_2kernel_small[:,1]*0.8), max(celerite_2kernel_small
 linreg = linregress(celerite_2kernel_small[:,1], diamonds[:,1])
 rvalue = linreg.rvalue
 ax3.plot(x, x*linreg.slope + linreg.intercept, 'r')
+ax1.plot(x, x, 'r--')
 print(linreg.slope)
 
 ax3.set_title('Small Kernel - Diamonds 1 --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
@@ -100,6 +103,7 @@ x = np.linspace(min(celerite_2kernel_large[:,1]*0.8), max(celerite_2kernel_large
 linreg = linregress(celerite_2kernel_large[:,1], diamonds2[:,1])
 rvalue = linreg.rvalue
 ax4.plot(x, x*linreg.slope + linreg.intercept, 'r')
+ax1.plot(x, x, 'r--')
 print(linreg.slope)
 
 ax4.set_title('Large Kernel - Diamonds 2 --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
@@ -129,9 +133,10 @@ x = np.linspace(min(celerite_1kernel[:,4]*0.8), max(celerite_1kernel[:,4]*1.2), 
 linreg = linregress(celerite_1kernel[:,4], diamonds[:,4])
 rvalue = linreg.rvalue
 ax1.plot(x, x*linreg.slope + linreg.intercept, 'r')
+#ax1.plot(x, x, 'r--')
 print(linreg.slope)
 
-ax1.set_title('Diamonds 1 --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
+ax1.set_title(r'Low $\omega_0$ Diamonds --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
 ax1.set_xlabel(r'GP ($\mu$Hz)',fontsize=14)
 ax1.set_ylabel(r'DIAMONDS ($\mu$Hz)',fontsize=14)
 ax1.tick_params(axis='both', which='major', labelsize=14)
@@ -145,9 +150,10 @@ x = np.linspace(min(celerite_1kernel[:,4]*0.8), max(celerite_1kernel[:,4]*1.2), 
 linreg = linregress(celerite_1kernel[:,4], diamonds2[:,4])
 rvalue = linreg.rvalue
 ax2.plot(x, x*linreg.slope + linreg.intercept, 'r')
+#ax2.plot(x, x, 'r--')
 print(linreg.slope)
               
-ax2.set_title('Diamonds 2 --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
+ax2.set_title(r'High $\omega_0$ Diamonds --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
 ax2.set_xlabel(r'GP ($\mu$Hz)',fontsize=14)
 ax2.set_ylabel(r'DIAMONDS ($\mu$Hz)',fontsize=14)
 ax2.tick_params(axis='both', which='major', labelsize=14)
@@ -168,9 +174,10 @@ x = np.linspace(min(celerite_2kernel_small[:,4]*0.8), max(celerite_2kernel_small
 linreg = linregress(celerite_2kernel_small[:,4], diamonds[:,4])
 rvalue = linreg.rvalue
 ax3.plot(x, x*linreg.slope + linreg.intercept, 'r')
+ax3.plot(x, x, 'r--')
 print(linreg.slope)
 
-ax3.set_title('Small Kernel - Diamonds 1 --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
+ax3.set_title(r'Low $\omega_0$ Kernel - Low $\omega_0$ Diamonds --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
 ax3.set_xlabel(r'GP ($\mu$Hz)',fontsize=14)
 ax3.set_ylabel(r'DIAMONDS ($\mu$Hz)',fontsize=14)
 ax3.tick_params(axis='both', which='major', labelsize=14)
@@ -184,9 +191,10 @@ x = np.linspace(min(celerite_2kernel_large[:,4]*0.8), max(celerite_2kernel_large
 linreg = linregress(celerite_2kernel_large[:,4], diamonds2[:,4])
 rvalue = linreg.rvalue
 ax4.plot(x, x*linreg.slope + linreg.intercept, 'r')
+ax4.plot(x, x, 'r--')
 print(linreg.slope)
               
-ax4.set_title('Large Kernel - Diamonds 2 --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
+ax4.set_title(r'High $\omega_0$ Kernel - High $\omega_0$ Diamonds --> R Value = {:6f}'.format(abs(rvalue)), fontsize=16)
 ax4.set_xlabel(r'GP ($\mu$Hz)',fontsize=14)
 ax4.set_ylabel(r'DIAMONDS ($\mu$Hz)',fontsize=14)
 ax4.tick_params(axis='both', which='major', labelsize=14)
