@@ -27,10 +27,10 @@ except NameError:
 				star_list.append(file.rstrip())
 
 # If there is no file , create it
-if os.path.exists(results_file + '.results'):
+if os.path.exists('Results/' + results_file + '.rslt'):
     pass
 else:
-	z = open(results_file + '.results', 'w')
+	z = open('Results/' + results_file + '.rslt', 'w')
 	z.write('{:30}{:^16}{:^16}{:^16}{:^16}\n'.format('Filename', 'Amplitude_1', 'Timescale_1', 'Amplitude_2', 'Timescale_2'))
 	z.close()
 
@@ -46,9 +46,9 @@ for file in star_list:
 
 	# Bundle data in tuple for organisation
 	if filename.endswith('.fits'):
-		data = backend.readfits(filename, Nmax, fits_options)
+		data = backend.readfits(filename, Nmax, offset, fits_options)
 	else:
-		data = backend.readtxt(filename, Nmax)
+		data = backend.readtxt(filename, Nmax, offset)
 	#data = (time, flux, error)
 
 	# Initiate prior distributions according to options set by user
@@ -70,7 +70,7 @@ for file in star_list:
 	#write_buffer += '{:^16.6f}{:^16.6f}{:^16.6f}\n'.format(final_pars[0],final_pars[1],final_pars[2])
 	#write_buffer +=('{:10.6f}{:10}{:10.6f}\n'.format(final_pars[0],'',final_pars[1]))
 	
-	z = open(results_file + '.results', 'a')
+	z = open('Results/' + results_file + '.rslt', 'a')
 	z.write(write_buffer)
 	z.close()
 

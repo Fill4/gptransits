@@ -28,13 +28,13 @@ if verbose:
 else:   
 	verboseprint = lambda *a: None # do-nothing function
 
-def readfits(filename, Nmax, fits_options):
+def readfits(filename, Nmax, offset, fits_options):
 	# Read data from fits and remove nans
 	hdulist = pyfits.open(filename)
 
-	ntime = getattr(hdulist[1].data, fits_options['time'])[1000:Nmax+1000]
-	nflux = getattr(hdulist[1].data, fits_options['flux'])[1000:Nmax+1000]
-	nerror = getattr(hdulist[1].data, fits_options['error'])[1000:Nmax+1000]
+	ntime = getattr(hdulist[1].data, fits_options['time'])[offset:Nmax+offset]
+	nflux = getattr(hdulist[1].data, fits_options['flux'])[offset:Nmax+offset]
+	nerror = getattr(hdulist[1].data, fits_options['error'])[offset:Nmax+offset]
 	#nerror[~np.isfinite(nerror)] = 10
 
 	ind = np.logical_and(~np.isnan(ntime), ~np.isnan(nflux), ~np.isnan(nerror))
@@ -53,13 +53,14 @@ def readfits(filename, Nmax, fits_options):
 
 	return (time, flux, error)
 
-def readtxt(filename, Nmax):
+def readtxt(filename, Nmax, offset):
 	buffer = np.loadtxt(filename)
 
 	ntime = buffer[1000:Nmax+1000,0]
 	nflux = buffer[1000:Nmax+1000,1]
-	nerror = buffer[1000:Nmax+1000,2]
+	#nerror = buffer[0:Nmax,2]
 	#nerror[~np.isfinite(nerror)] = 10
+	nerror = np.ones(len(nflux)) * 1e-5
 
 	ind = np.logical_and(~np.isnan(ntime), ~np.isnan(nflux), ~np.isnan(nerror))
 	time = ntime[ind]
@@ -105,10 +106,11 @@ def setup_celerite(pars):
 	#S1, w1, S2, w2, S3, w3, jitter = pars
 	#S1, w1, S2, w2, S3, w3 = pars
 	#S1, w1, S2, w2, jitter = pars
-	S1, w1, S2, w2 = pars
+	#S1, w1, S2, w2 = pars
 	#S1, w1, jitter = pars
 	#S1, w1 = pars
-	
+	S1, w1, S2, w2, S_bump, w_bump, Q_bump = pars
+
 	Q = 1.0 / np.sqrt(2.0)
 	terms = []
 	
@@ -132,7 +134,9 @@ def setup_celerite(pars):
 	#kernel_4 = celerite.terms.SHOTerm(log_S0=np.log(S3), log_Q=np.log(Q), log_omega0=np.log(w3))
 	#kernel_4.freeze_parameter("log_Q")
 
+
 	kernel = kernel_1 + kernel_2 #+ kernel_3 #+ kernel_4
+	kernel += celerite.terms.SHOTerm(log_S0=np.log(S_bump), log_Q=np.log(Q_bump), log_omega0=np.log(w_bump))
 	#kernel += celerite.terms.JitterTerm(log_sigma=np.log(jitter))
 	#'''
 	
