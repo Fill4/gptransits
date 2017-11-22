@@ -27,18 +27,18 @@ except NameError:
 				star_list.append(file.rstrip())
 
 # If there is no file , create it
-if os.path.exists('Results/' + results_file + '.rslt'):
+if os.path.exists('Results/' + results_file + '.dat'):
     pass
 else:
-	z = open('Results/' + results_file + '.rslt', 'w')
-	z.write('{:30}{:^16}{:^16}{:^16}{:^16}\n'.format('Filename', 'Amplitude_1', 'Timescale_1', 'Amplitude_2', 'Timescale_2'))
+	z = open('Results/' + results_file + '.dat', 'w')
+	z.write('{:20}  {:^10}  {:^10}  {:^10}  {:^10}  {:^10}  {:^10}  {:^10}\n'.format('Filename', 'Amp_1', 'Tscale_1', 'Amp_2', 'Tscale_2', 'Amp_osc', 'nu_max', 'osc_bump'))
 	z.close()
 
-for file in star_list:
+for filename in star_list:
 	
+	name = os.path.basename(filename)
 	# Add filename to buffer and define variable with full path to file
-	write_buffer = '{:30}'.format(file)
-	filename = 'RGBensemble/' + file
+	write_buffer = '{:20}'.format(os.path.basename(name))
 
 	# Start timer
 	backend.verboseprint('\n{:_^60}'.format('Starting GP fitting procedure'))
@@ -54,34 +54,22 @@ for file in star_list:
 	# Initiate prior distributions according to options set by user
 	priors = backend.setup_priors(prior_settings)
 
-	# Run minimization
-	backend.run_minimization(data, priors, plot=plot, module=module)
+	# Run run_minimizationn
+	#backend.run_minimization(data, priors, plot=plot, module=module)
 
 	# Run MCMC
-	final_pars = backend.run_mcmc(data, priors, plot=plot, nwalkers=nwalkers, burnin=burnin, iterations=iterations, module=module)
+	final_pars = backend.run_mcmc(data, priors, plot_corner=plot_corner, nwalkers=nwalkers, burnin=burnin, iterations=iterations, module=module)
 
 	for i in range(len(final_pars)):
-		write_buffer += '{:^16.6f}'.format(final_pars[i])
+		write_buffer += '  {:^10.4f}'.format(final_pars[i])
 	write_buffer += '\n'
 
-	#write_buffer += '{:^16.6f}{:^16.6f}{:^16.6f}{:^16.6f}{:^16.6f}{:^16.6f}{:^16.6f}\n'.format(final_pars[0],final_pars[1],final_pars[2],final_pars[3],final_pars[4],final_pars[5],final_pars[6])
-	#write_buffer += '{:^16.6f}{:^16.6f}{:^16.6f}{:^16.6f}{:^16.6f}\n'.format(final_pars[0],final_pars[1],final_pars[2],final_pars[3], final_pars[4])
-	#write_buffer += '{:^16.6f}{:^16.6f}{:^16.6f}{:^16.6f}\n'.format(final_pars[0],final_pars[1],final_pars[2],final_pars[3])
-	#write_buffer += '{:^16.6f}{:^16.6f}{:^16.6f}\n'.format(final_pars[0],final_pars[1],final_pars[2])
-	#write_buffer +=('{:10.6f}{:10}{:10.6f}\n'.format(final_pars[0],'',final_pars[1]))
-	
-	z = open('Results/' + results_file + '.rslt', 'a')
+	z = open('Results/' + results_file + '.dat', 'a')
 	z.write(write_buffer)
 	z.close()
 
-	if plot:
-		for i in plt.get_fignums():
-			plt.figure(i)
-			plt.savefig('Figures/{}_{}_fig{}.png'.format(results_file, os.path.splitext(os.path.basename(filename))[0], i), dpi = 200)
-			plt.clf()
-			plt.cla()
-			plt.close()
-
+	if plot_corner:
+		plt.savefig(name + '_corner.png')
 
 	# Print execution time
 	fullTimeScript = timeit.default_timer() - startTimeScript
