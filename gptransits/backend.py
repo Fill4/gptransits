@@ -42,8 +42,8 @@ def readfits(filename, Nmax, offset, fits_options):
 	time = time - time[0]
 	flux = nflux[ind]/np.median(nflux[ind])
 	error = nerror[ind]/np.median(nflux[ind])
-	flux = (flux - 1)*1e6
-	error = error*1e6
+	flux = (flux - 1)*1e6 #to ppm
+	error = error*1e6 #to ppm
 	#flux = nflux[ind]
 
 	#print(len(getattr(hdulist[1].data, fits_options['time'])))
@@ -56,12 +56,19 @@ def readfits(filename, Nmax, offset, fits_options):
 def readtxt(filename, Nmax, offset):
 	buffer = np.loadtxt(filename)
 
-	ntime = buffer[1000:Nmax+1000,0]
-	nflux = buffer[1000:Nmax+1000,1]
-	#nerror = buffer[0:Nmax,2]
-	#nerror[~np.isfinite(nerror)] = 10
-	nerror = np.ones(len(nflux)) * 1e-5
+	#ntime = buffer[offset:Nmax+offse,0]
+	#nflux = buffer[offset:Nmax+offse,1]
+	#nerror = np.ones(len(nflux)) * 1e-5
+	
+	ntime = buffer[:,0]
+	nflux = buffer[:,1]
+	nerror = buffer[:,2]
 
+	time = ntime
+	flux = nflux
+	error = nerror
+
+	"""
 	ind = np.logical_and(~np.isnan(ntime), ~np.isnan(nflux), ~np.isnan(nerror))
 	time = ntime[ind]
 	time = time - time[0]
@@ -69,9 +76,7 @@ def readtxt(filename, Nmax, offset):
 	error = nerror[ind]/np.median(nflux[ind])
 	flux = (flux - 1)*1e6
 	error = error*1e6
-	
-	#flux = (flux - 1)*1e6
-	#error = error*1e6
+	"""
 
 	#plt.errorbar(time, flux, yerr=error, fmt=".k", capsize=0)
 	#plt.show()
@@ -205,7 +210,7 @@ def lnLikeGrad(pars, phase, flux, error, minimization=False):
 '''
 
 # Minimization Method
-def run_minimization(data, priors, plot=False, init_pars=None, module='george'):
+def run_minimization(data, priors, plot_sample=False, init_pars=None, module='celerite'):
 
 	# Timing execution time
 	verboseprint('\n{:_^60}\n'.format('Starting Minimization'))
@@ -227,10 +232,10 @@ def run_minimization(data, priors, plot=False, init_pars=None, module='george'):
 	verboseprint("Hyperparameters from minimization:")
 	print_pars(final_pars, priors)
 
-	if plot:
+	if plot_sample:
 
 		# Plotting the results from the minimization method
-		fig = plt.figure("Minimization Method", figsize=(14, 14))
+		fig = plt.figure(1, figsize=(14, 14), dpi=100)
 		ax1 = fig.add_subplot(211)
 		ax2 = fig.add_subplot(212)
 		# Plot initial data with errors in both subplots
@@ -260,7 +265,7 @@ def run_minimization(data, priors, plot=False, init_pars=None, module='george'):
 
 	return final_pars, fullTimeMinimization
 
-def run_mcmc(data, priors, plot=False, init_pars=None, nwalkers=20, burnin=500, iterations=2000, module='george'):
+def run_mcmc(data, priors, plot_corner=True, plot_sample=False, init_pars=None, nwalkers=20, burnin=500, iterations=2000, module='celerite'):
 	
 	verboseprint('\n{:_^60}\n'.format('Starting MCMC'))
 	startTimeMCMC = timeit.default_timer()
@@ -301,42 +306,47 @@ def run_mcmc(data, priors, plot=False, init_pars=None, nwalkers=20, burnin=500, 
 	gp = setup_gp(final_pars, module)
 	gp.compute(phase, error)
 
-	if plot:
+	if plot_sample:
 
 		# Plotting the results from the MCMC method
-		fig1 = plt.figure("MCMC Method", figsize=(14, 7))
+		fig1 = plt.figure(2, figsize=(14, 7), dpi=100)
 		ax1 = fig1.add_subplot(111)
 		#ax2 = fig1.add_subplot(212)
+		
 		# Plot initial data with errors in both subplots
 		ax1.errorbar(phase, flux, yerr=error, fmt=".k", capsize=0, label= 'Flux', markersize='3', elinewidth=1)
-		#ax2.errorbar(phase, flux, yerr=error, fmt=".k", capsize=0, label= 'Flux', markersize='3', elinewidth=1)
 		numpoints = (max(phase)-min(phase))/(1.0/48.0)
 		x = np.linspace(min(phase), max(phase), num=numpoints)
+		
 		# Plot conditional predictive distribution of the model in upper plot
 		mu, cov = gp.predict(flux, x)
 		std = np.sqrt(np.diag(cov))
 		std = np.nan_to_num(std)
+		
 		ax1.plot(x, mu, color="#ff7f0e", label= 'Mean distribution GP', linewidth=0.5)
-		#ax1.fill_between(x, mu+3*std, mu-3*std, color="#ff7f0e", alpha=0.15, edgecolor="none", label= '3 sigma', linewidth=0.5)
-		#ax1.fill_between(x, mu+2*std, mu-2*std, color="#ff7f0e", alpha=0.3, edgecolor="none", label= '2 sigma', linewidth=0.5)
 		ax1.fill_between(x, mu+std, mu-std, color="#ff7f0e", alpha=0.6, edgecolor="none", label= '1 sigma', linewidth=0.6)
+		#ax1.fill_between(x, mu+2*std, mu-2*std, color="#ff7f0e", alpha=0.3, edgecolor="none", label= '2 sigma', linewidth=0.5)
+		#ax1.fill_between(x, mu+3*std, mu-3*std, color="#ff7f0e", alpha=0.15, edgecolor="none", label= '3 sigma', linewidth=0.5)
+		
 		#ax1.set_title("Probability distribution for the gaussian process with the parameters from the MCMC",fontsize=16)
-		ax1.set_ylabel('Flux[ppm]',fontsize=16)
+		ax1.set_xlabel('Time [days]',fontsize=15)	
+		ax1.set_ylabel('Flux[ppm]',fontsize=15)
 		ax1.tick_params(axis='both', which='major', labelsize=16)
 		ax1.legend(loc='upper left', fontsize=15)
+		
 		# Compute the prediction conditioned on the observations and plot it.
 		# Plot sample from the conditional ditribution in lower plot
 		#m = gp.sample_conditional(flux, x)
 		#ax2.plot(x, m, color="#4682b4", label= 'Sample')
 		#ax2.plot(x, np.random.normal(loc=mu, scale=std), color="#4682b4", label='Sample')
 		#ax2.set_title("Sample drawn from the probability distribution above",fontsize=16)
-		ax1.set_xlabel('Time [days]',fontsize=15)	
 		#ax2.set_ylabel('Flux [ppm]',fontsize=18)
 		#ax2.legend(loc='upper left')
 
+	if plot_corner:
 		labels = [priors[i][0] for i in priors]
 		fig2 = corner.corner(samples, labels=labels, 
 							 quantiles=[0.5], show_titles=True, title_fmt='.3f',
-							 truths=final_pars, figsize=(15, 15))
+							 truths=final_pars, figsize=(14, 14), dpi=100, num=3)
 
 	return final_pars
