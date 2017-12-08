@@ -12,6 +12,7 @@ import scipy.stats
 import timeit
 import sys, os, os.path
 import backend
+from backend import vprint
 
 star_list = []
 try:
@@ -31,47 +32,47 @@ if os.path.exists('Results/' + results_file + '.dat'):
     pass
 else:
 	z = open('Results/' + results_file + '.dat', 'w')
-	z.write('{:20}  {:^10}  {:^10}  {:^10}  {:^10}  {:^10}  {:^10}  {:^10}\n'.format('Filename', 'Amp_1', 'Tscale_1', 'Amp_2', 'Tscale_2', 'Amp_osc', 'nu_max', 'osc_bump'))
+	z.write('#{:17}  {:^10}  {:^10}  {:^10}  {:^10}  {:^10}  {:^10}  {:^10}\n'.format('Filename', 'Amp_1', 'Tscale_1', 'Amp_2', 'Tscale_2', 'Amp_osc', 'nu_max', 'osc_bump'))
 	z.close()
 
 for filename in star_list:
 	
-	name = os.path.basename(filename)
+	name = os.path.splitext(os.path.basename(filename))[0]
 	# Add filename to buffer and define variable with full path to file
-	write_buffer = '{:20}'.format(os.path.basename(name))
+	write_buffer = '{:20}'.format(name)
 
 	# Start timer
-	backend.verboseprint('\n{:_^60}'.format('Starting GP fitting procedure'))
-	startTimeScript = timeit.default_timer()
+	vprint('Starting GP fitting procedure ...')
+	itime_script = timeit.default_timer()
 
 	# Bundle data in tuple for organisation
-	if filename.endswith('.fits'):
-		data = backend.readfits(filename, Nmax, offset, fits_options)
-	else:
-		data = backend.readtxt(filename, Nmax, offset)
-	#data = (time, flux, error)
+	data = backend.read_data(filename, Nmax, offset, fits_options)
 
 	# Initiate prior distributions according to options set by user
 	priors = backend.setup_priors(prior_settings)
 
 	# Run run_minimizationn
-	#backend.run_minimization(data, priors, plot=plot, module=module)
+	#backend.run_minimization(data, priors, plot=plot)
 
 	# Run MCMC
-	final_pars = backend.run_mcmc(data, priors, plot_corner=plot_corner, nwalkers=nwalkers, burnin=burnin, iterations=iterations, module=module)
+	final_params = backend.run_mcmc(data, priors, plot_corner=plot_corner, plot_sample=plot_sample, nwalkers=nwalkers, iterations=iterations)
 
-	for i in range(len(final_pars)):
-		write_buffer += '  {:^10.4f}'.format(final_pars[i])
+	# Write final params from mcmc to buffer
+	for i in range(len(final_params)):
+		write_buffer += '  {:^10.4f}'.format(final_params[i])
 	write_buffer += '\n'
 
+	# Write buffer to results file
 	z = open('Results/' + results_file + '.dat', 'a')
 	z.write(write_buffer)
 	z.close()
 
+	if plot_sample:
+		plt.savefig('Results/' + name + '_sample.png')
 	if plot_corner:
-		plt.savefig(name + '_corner.png')
+		plt.savefig('Results/' + name + '_corner.png')
 
 	# Print execution time
-	fullTimeScript = timeit.default_timer() - startTimeScript
-	backend.verboseprint("\nComplete execution time: {:10.5} usec".format(fullTimeScript))
-	backend.verboseprint('\n{:_^60}\n'.format('END'))
+	time_script = timeit.default_timer() - itime_script
+	vprint("Complete execution time: {:.4f} usec".format(time_script))
+	vprint('END')

@@ -88,6 +88,6 @@ ENV/
 # Rope project settings
 .ropeproject
 
-gptransits/Figures
-gptransits/Results
+#gptransits/Figures
+#gptransits/Results
 .vs
