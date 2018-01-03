@@ -9,7 +9,7 @@ import celerite
 import corner
 from astropy.stats import LombScargle
 
-filename = 'tda-stars/Star598.dat'
+filename = 'sample19/KIC012008916.dat'
 time, flux, error = np.loadtxt(filename, unpack=True)
 error = None
 
@@ -22,8 +22,8 @@ li = np.sqrt(2/np.pi)
 xfreq = 2*np.pi
 xamp = 1
 
-pars = [78.76, 36.72, 50, 145, 97.05, 102.66, 3.51, 5.7]
-pars[0] = (pars[0]**2 /pars[1])*np.sqrt(2)
+pars = [115.74, 60.5, 50, 145, 51.47, 168.3, 3.51, 3.588]
+pars[0] = (pars[0]**2 /pars[1])*np.sqrt(2/np.pi)
 pars[1] = pars[1]*xfreq
 #pars[2] = (pars[2]**2 /pars[3])*np.sqrt(2)
 #pars[3] = pars[3]*xfreq

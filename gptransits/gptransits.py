@@ -68,8 +68,10 @@ for filename in star_list:
 	z.close()
 
 	if plot_sample:
+		plt.figure(1)
 		plt.savefig('Results/' + name + '_sample.png')
 	if plot_corner:
+		plt.figure(2)
 		plt.savefig('Results/' + name + '_corner.png')
 
 	# Print execution time
