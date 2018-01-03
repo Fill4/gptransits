@@ -90,7 +90,7 @@ def scale_params(params):
 	S1, w1, S_bump, Q_bump, w_bump = params
 	#S1, w1, S2, w2, S_bump, Q_bump, w_bump = params
 
-	S1 = (S1**2 / w1)*np.sqrt(2)
+	S1 = (S1**2 / w1) * (2/np.sqrt(np.pi))
 	w1 = w1*xfreq
 	#S2 = (S2**2 / w2)*np.sqrt(2)
 	#w2 = w2*xfreq
@@ -207,7 +207,7 @@ def run_mcmc(data, priors, plot_corner=True, plot_sample=False, init_params=None
 		
 		# Plot initial data with errors in both subplots
 		ax1.errorbar(time/(24*3600), flux, yerr=error, fmt=".k", capsize=0, label= 'Flux', markersize='3', elinewidth=1)
-		x = np.linspace(min(time), max(time), num=Nmax)
+		x = np.linspace(min(time), max(time), num=1000)
 
 		# Setup GP
 		gp = setup_gp(final_params)
@@ -234,6 +234,12 @@ def run_mcmc(data, priors, plot_corner=True, plot_sample=False, init_params=None
 		fig2 = corner.corner(samples, labels=labels, 
 							 quantiles=[0.5], show_titles=True, title_fmt='.3f',
 							 truths=final_params, figsize=(14, 14), dpi=100, num=2)
+
+	plot_psd = False
+	if plot_psd:
+		nyquist = (1 / (2*(time[1]-time[0])))*1e6
+		f_sampling = 1 / (27.4*24*3600 / 1e6)
+		freq = np.linspace(0.0, nyquist, (nyquist/f_sampling)+1 )
 
 	return final_params
 
