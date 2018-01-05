@@ -6,21 +6,25 @@ import pandas as pd
 from scipy.stats import linregress
 
 folder = 'Results/diamonds_comparison/'
-diamonds_data = pd.read_csv(folder + 'diamonds_1gran_osc.dat', sep='\s+', header=None)
-gp_data = pd.read_csv(folder + 'sample19_model2a.dat', sep='\s+', header=None, comment='#')
+diamonds_files = ['diamonds_1gran_osc.dat', 'diamonds_2gran_osc.dat']
+gp_files = ["sample19_model2a.dat", "sample19_model4.dat"]
+diamonds_data = pd.read_csv(folder + diamonds_files[0], sep='\s+', header=None)
+gp_data = pd.read_csv(folder + gp_files[0], sep='\s+', header=None, comment='#')
 
 model = 2
 model_names = ['1 Granulation', '1 Granulation + Oscillation Bump', '2 Granulation', '2 Granulation + Oscillation Bump']
 model_list = ['1gran', '1gran_osc', '2gran', '2gran_osc']
 
 param_names = ['A$_{gran,1}$', 'w$_{gran,1}$', 'A$_{gran,2}$', 'w$_{gran,2}$', 'A$_{bump}$', 'w$_{bump}$', '$\sigma_{bump}$/Q$_{bump}$']
-units = ['[ppm]', '[$\mu$Hz]', '[ppm]', '[$\mu$Hz]', '[ppm]', '[$\mu$Hz]']
+units = ['[ppm]', '[$\mu$Hz]', '[ppm]', '[$\mu$Hz]', '[ppm]', '[$\mu$Hz]', '[$\mu$Hz]']
 if model == 2:
 	param_names = param_names[0:2]+param_names[4:7]
 
 diamonds_idx = [[2,3], [2,3,4,5,6], [2,3,4,5], [2,3,4,5,6,7,8]]
 gp_idx = [[1,2], [1,2,3,5,4], [1,2,3,4], [1,2,3,4,5,7,6]]
+fsize = [12, 14, 12, 18]
 
+stellar_array = pd.read_csv("sample19/sample19.dat", sep='\s+', header=None, comment='#')
 diamonds_array = np.array(diamonds_data.loc[:,diamonds_idx[model-1]])
 gp_array = np.array(gp_data.loc[:,gp_idx[model-1]])
 
@@ -29,7 +33,7 @@ gp_array = np.array(gp_data.loc[:,gp_idx[model-1]])
 ############################################################################
 ncols = int(np.ceil(gp_array[0].size/2))
 nrows = int(np.ceil(gp_array[0].size/3.6))
-fig, axs = plt.subplots(nrows=nrows, ncols=ncols, num=1, figsize=(14, 10))
+fig, axs = plt.subplots(nrows=nrows, ncols=ncols, num=1, figsize=(fsize[model-1], 10))
 fig.suptitle(model_names[model-1], fontsize=16)
 #------------
 i=0
@@ -37,7 +41,10 @@ for ax in axs.reshape(-1, order='F'): #axs.reshape(-1, order='F') to get columns
 	if i == gp_array[0].size:
 		fig.delaxes(ax)
 		break
-	ax.plot(gp_array[:,i], diamonds_array[:,i], 'ok', zorder=5)
+	plot = ax.scatter(gp_array[:,i], diamonds_array[:,i], zorder=5, c=stellar_array[2], cmap="copper")
+	if i == len(axs)-1:
+		cbar = fig.colorbar(plot)
+		cbar.set_label(r'log$g$')
 
 	x = np.linspace(gp_array[:,i].min(), gp_array[:,i].max(), num=500)
 	if not param_names[i] == '$\sigma_{bump}$/Q$_{bump}$':
