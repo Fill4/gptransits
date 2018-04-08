@@ -1,0 +1,13 @@
+numpy
+matplotlib
+pyfits
+emcee
+celerite
+george
+scipy
+timeit
+astropy
+statsmodels
+shutil
+subprocess
+math

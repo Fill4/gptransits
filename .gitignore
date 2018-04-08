@@ -88,7 +88,10 @@ ENV/
 # Rope project settings
 .ropeproject
 
+
+
+# Ignore giant results folder
 #gptransits/Figures
-#gptransits/Results
+gptransits/results
 .vs
 .vscode
