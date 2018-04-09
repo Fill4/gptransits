@@ -56,20 +56,23 @@ def mcmc(data, model, priors, plot_flags, nwalkers=20, iterations=2000, burnin=5
 	final_params[1::3] = q_16
 	final_params[2::3] = q_84
 	params = q_50
+	model.set_component_parameters(params)
 
-	logging.info("Hyperparameters from MCMC:")
-	print_params(params, priors)
+	# logging.info("Hyperparameters from MCMC:")
+	# print_params(params, priors)
 
-	if plot_flags["plot_gp"]:
-		plotting.plot_gp(params, data)
+	logging.info(model.get_params())
 
-	if plot_flags["plot_corner"]:
-		plotting.plot_corner(params, samples, priors)
+	# if plot_flags["plot_gp"]:
+	# 	plotting.plot_gp(params, data)
 
-	if plot_flags["plot_psd"]:
-		plotting.plot_psd(params, data)
+	# if plot_flags["plot_corner"]:
+	# 	plotting.plot_corner(params, samples, priors)
 
-	return final_params
+	# if plot_flags["plot_psd"]:
+	# 	plotting.plot_psd(params, data)
+
+	return samples, final_params
 
 
 

@@ -17,6 +17,7 @@ import logging
 from backend import setup_priors
 from mcmc import *
 from read_data import read_data
+import plotting
 
 def main(dataFolder, resultsFolder, model, prior_settings, plot_flags, nwalkers, iterations, burnin):
 
@@ -65,7 +66,7 @@ def main(dataFolder, resultsFolder, model, prior_settings, plot_flags, nwalkers,
 		#backend.run_minimization(data, priors, plot=plot)
 
 		# Run MCMC
-		final_params = mcmc(data, model, priors, plot_flags, nwalkers=nwalkers, iterations=iterations, burnin=burnin)
+		samples, final_params = mcmc(data, model, priors, plot_flags, nwalkers=nwalkers, iterations=iterations, burnin=burnin)
 
 		# Write final params from mcmc to buffer
 		for i in range(len(final_params)):
@@ -87,9 +88,11 @@ def main(dataFolder, resultsFolder, model, prior_settings, plot_flags, nwalkers,
 			plt.figure(fig_index[1])
 			plt.savefig('{}/{}_corner.png'.format(resfolder, name))
 		if plot_flags['plot_psd']:
-			plt.figure(fig_index[2])
-			plt.savefig('{}/{}_psd.png'.format(resfolder, name))
-			plt.tight_layout()
+			# plt.figure(fig_index[2])
+			# plt.savefig('{}/{}_psd.png'.format(resfolder, name))
+			# plt.tight_layout()
+			plotting.plot_psd(model, data)
+			plt.show()
 		if any(plot_flags.values()):
 			plt.close('all')
 
