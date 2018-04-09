@@ -29,7 +29,7 @@ class Component(object):
 	def eval_prior(self, log=True): # Add non log evaluation of prior
 		return sum(self.priors.logpdf(self.parameter_array))
 
-	def get_celerite_params(self):
+	def get_parameters_celerite(self):
 		raise NotImplementedError
 
 	def get_kernel(self):
@@ -53,7 +53,7 @@ class Granulation(Component):
 		return '{0} ({names[0]}:{values[0]:.3f} {units[0]}, {names[1]}:{values[1]:.3f} {units[1]})'.format(self.name, 
 				names=self.parameter_names, values=self.parameter_array, units=self.parameter_units)
 
-	def get_celerite_params(self):
+	def get_parameters_celerite(self):
 		a, b = self.parameter_array
 
 		S = (2/np.sqrt(np.pi)) * (a**2 / b)
@@ -64,7 +64,7 @@ class Granulation(Component):
 
 	def get_kernel(self):
 		Q = 1.0 / np.sqrt(2.0)
-		S, w = self.get_celerite_params()
+		S, w = self.get_parameters_celerite()
 
 		kernel = celerite.terms.SHOTerm(log_S0=S, log_Q=np.log(Q), log_omega0=w)
 		# kernel = celerite.terms.SHOTerm(log_S0=np.log(S), log_Q=np.log(Q), log_omega0=np.log(w))
@@ -83,7 +83,7 @@ class OscillationBump(Component):
 		return '{0}({names[0]}:{values[0]:.3f} {units[0]}, {names[1]}:{values[1]:.3f} {units[1]}, {names[2]}:{values[2]:.3f} {units[2]})'.format(self.name, 
 				names=self.parameter_names, values=self.parameter_array, units=self.parameter_units)
 
-	def get_celerite_params(self):
+	def get_parameters_celerite(self):
 		A, Q, numax = self.parameter_array
 
 		S = A / ((Q**2) * np.sqrt(2/np.pi))
@@ -93,7 +93,7 @@ class OscillationBump(Component):
 		return np.log([S, Q, w])
 
 	def get_kernel(self):
-		S, Q, w = self.get_celerite_params()
+		S, Q, w = self.get_parameters_celerite()
 
 		kernel = celerite.terms.SHOTerm(log_S0=S, log_Q=Q, log_omega0=w)
 		# kernel = celerite.terms.SHOTerm(log_S0=np.log(S), log_Q=np.log(Q), log_omega0=np.log(w))
@@ -111,14 +111,14 @@ class WhiteNoise(Component):
 	def __repr__(self):
 		return '{0}({names[0]}:{values[0]:.3f} {units[0]})'.format(self.name, names=self.parameter_names, values=self.parameter_array, units=self.parameter_units)
 
-	def get_celerite_params(self):
+	def get_parameters_celerite(self):
 		jitter, = self.parameter_array
 
 		# return np.array([jitter])
 		return np.log([jitter])
 
 	def get_kernel(self):
-		jitter, = self.get_celerite_params()
+		jitter, = self.get_parameters_celerite()
 		kernel = celerite.terms.JitterTerm(log_sigma=jitter)
 		# kernel = celerite.terms.JitterTerm(log_sigma=np.log(jitter))
 		return kernel
@@ -156,25 +156,35 @@ class Model(object):
 		else:
 			raise ValueError("Must add at least one component to model")
 
-	def set_component_parameters(self, params):
+	def set_parameters(self, params):
 		i = 0
 		for component in self.component_array:
 			component.parameter_array = params[i:i+component.npars]
 			i += component.npars
 
-	def get_params(self):
+	def get_parameters(self):
 		return np.hstack([component.parameter_array for component in self.component_array])
 
-	def get_celerite_params(self):
-		return np.hstack([component.get_celerite_params() for component in self.component_array])
+	def get_parameters_celerite(self):
+		return np.hstack([component.get_parameters_celerite() for component in self.component_array])
+		
+	def get_parameters_names(self):
+		return np.hstack([component.parameter_names for component in self.component_array])
 
-	def eval_prior(self):
+	def get_parameters_latex(self):
+		return np.hstack([component.parameter_latex_names for component in self.component_array])
+
+	def get_parameters_units(self):
+		return np.hstack([component.parameter_names for component in self.component_array])
+
+
+	def prior_evaluate(self):
 		prior = sum([component.eval_prior() for component in self.component_array])
 		if not np.isfinite(prior):
 			return -np.inf
 		return prior
 
-	def sample_prior(self, num=1):
+	def prior_sample(self, num=1):
 		return np.hstack([component.sample_prior(num) for component in self.component_array])
 
 	def get_kernel(self):
@@ -195,31 +205,19 @@ class Model(object):
 		pass
 
 
-		
+
 class GP(object):
 	def __init__(self, model, time):
 		self.model = model
 		self.gp = celerite.GP(model.get_kernel())
 		self.gp.compute(time/1e6)
 
-	def set_parameter_vector(self, params):
-		# self.model.set_component_parameters(params)
-		celerite_params = self.model.get_celerite_params()
-		# print('---------------------------------------')
-		# print(celerite_params)
-		# print('           !!!                ')
-		# print(np.log(celerite_params))
-		# print('           !!!                ')
+	def set_parameters(self, params):
+		celerite_params = self.model.get_parameters_celerite()
 		self.gp.set_parameter_vector(celerite_params)
 
 	def log_likelihood(self, residuals):
 		return self.gp.log_likelihood(residuals)
 
-
-if __name__ == '__main__':
-	a = Granulation()
-	b = OscillationBump()
-	c = Granulation()
-	d = WhiteNoise()
-	model = Model(a, b, c, d)
-	sample = model.parameter_array
+	def predict(self, y, t=None, return_cov=True, return_var=False):
+		return self.gp.predict(y, t, return_cov, return_var)

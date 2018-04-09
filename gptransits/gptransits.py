@@ -61,12 +61,13 @@ def main(dataFolder, resultsFolder, model, prior_settings, plot_flags, nwalkers,
 
 		# Initiate prior distributions according to options set by user
 		priors = setup_priors(prior_settings)
+		gp = GP(model, data[0])
 
 		# Run run_minimizationn
 		#backend.run_minimization(data, priors, plot=plot)
 
 		# Run MCMC
-		samples, final_params = mcmc(data, model, priors, plot_flags, nwalkers=nwalkers, iterations=iterations, burnin=burnin)
+		samples, final_params = mcmc(data, gp, priors, plot_flags, nwalkers=nwalkers, iterations=iterations, burnin=burnin)
 
 		# Write final params from mcmc to buffer
 		for i in range(len(final_params)):
@@ -79,21 +80,16 @@ def main(dataFolder, resultsFolder, model, prior_settings, plot_flags, nwalkers,
 		z.close()
 
 		# Plotting
-		fig_index = plt.get_fignums()
+		# fig_index = plt.get_fignums()
 
 		if plot_flags['plot_gp']:
-			plt.figure(fig_index[0])
-			plt.savefig('{}/{}_sample.png'.format(resfolder, name))
+			plotting.plot_gp(gp, data)
 		if plot_flags['plot_corner']:
-			plt.figure(fig_index[1])
-			plt.savefig('{}/{}_corner.png'.format(resfolder, name))
+			plotting.plot_corner(gp, samples)
 		if plot_flags['plot_psd']:
-			# plt.figure(fig_index[2])
-			# plt.savefig('{}/{}_psd.png'.format(resfolder, name))
-			# plt.tight_layout()
-			plotting.plot_psd(model, data)
-			plt.show()
+			plotting.plot_psd(gp, data)
 		if any(plot_flags.values()):
+			plt.show()
 			plt.close('all')
 
 		# Print execution time

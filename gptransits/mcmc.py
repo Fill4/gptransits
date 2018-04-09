@@ -11,7 +11,7 @@ import plotting
 from components_v2 import *
 
 
-def mcmc(data, model, priors, plot_flags, nwalkers=20, iterations=2000, burnin=500):
+def mcmc(data, gp, priors, plot_flags, nwalkers=20, iterations=2000, burnin=500):
 
 	itime_mcmc = timeit.default_timer()
 
@@ -23,8 +23,7 @@ def mcmc(data, model, priors, plot_flags, nwalkers=20, iterations=2000, burnin=5
 	# # gp = setup_gp(init_params[:,0])
 	# # gp.compute(time/1e6)
 
-	gp = GP(model, time)
-	init_params = gp.model.sample_prior(nwalkers)
+	init_params = gp.model.prior_sample(nwalkers)
 	ndim = init_params.shape[1]
 
 	# Initiate the sampler
@@ -56,12 +55,13 @@ def mcmc(data, model, priors, plot_flags, nwalkers=20, iterations=2000, burnin=5
 	final_params[1::3] = q_16
 	final_params[2::3] = q_84
 	params = q_50
-	model.set_component_parameters(params)
+	gp.model.set_parameters(params)
+	gp.set_parameters(params)
 
 	# logging.info("Hyperparameters from MCMC:")
 	# print_params(params, priors)
 
-	logging.info(model.get_params())
+	logging.info(gp.model.get_parameters())
 
 	# if plot_flags["plot_gp"]:
 	# 	plotting.plot_gp(params, data)

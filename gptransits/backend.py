@@ -206,11 +206,11 @@ def log_likelihood(params, time, flux, error, priors, gp):
 
 	# -----------------------------------------------
 
-	gp.model.set_component_parameters(params)
-	lnprior = gp.model.eval_prior()
+	gp.model.set_parameters(params)
+	lnprior = gp.model.prior_evaluate()
 	if not np.isfinite(lnprior):
 		return -np.inf
-	gp.set_parameter_vector(params)
+	gp.set_parameters(params)
 
 	lnlikelihood = gp.log_likelihood(flux - mean_model(params, time))
 	
