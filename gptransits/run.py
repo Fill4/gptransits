@@ -35,15 +35,15 @@ prior_settings[7] = ['Jitter', 'uniform', 0, 100]
 model = Model(OscillationBump(), Granulation(), Granulation(), WhiteNoise())
 
 # Other parameters
-plot_flags = {'plot_gp':0, 'plot_corner':0, 'plot_psd':0}
+plot_flags = {'plot_gp':0, 'plot_corner':0, 'plot_psd':1}
 
 verbose = True
 if verbose:
 	logging.basicConfig(format='%(message)s', level=logging.INFO)
 
-nwalkers = 24
-iterations = 2000
-burnin = 500
+burnin = 400
+iterations = 1000
+nwalkers = 16
 
 #--------------------------------------------------------------
 #--------------------------------------------------------------

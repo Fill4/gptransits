@@ -35,6 +35,11 @@ class Component(object):
 	def get_kernel(self):
 		raise NotImplementedError
 	
+	def get_psd(self, freq):
+		kernel = self.get_kernel()
+		power = kernel.get_psd(2*np.pi*freq)
+		return (self.name, power)
+		
 
 class Granulation(Component):
 	name = 'Granulation'
@@ -157,6 +162,9 @@ class Model(object):
 			component.parameter_array = params[i:i+component.npars]
 			i += component.npars
 
+	def get_params(self):
+		return np.hstack([component.parameter_array for component in self.component_array])
+
 	def get_celerite_params(self):
 		return np.hstack([component.get_celerite_params() for component in self.component_array])
 
@@ -174,6 +182,14 @@ class Model(object):
 		for component in self.component_array:
 			kernel += component.get_kernel()
 		return kernel
+
+	def get_psd(self, time):
+		nyquist = (1 / (2*(time[1]-time[0])))*1e6
+		f_sampling = 1 / (27.4*24*3600 / 1e6)
+		freq = np.linspace(0.0, nyquist, (nyquist/f_sampling)+1 )
+
+		psd_dict = dict(([component.get_psd(freq) for component in self.component_array]))
+		return [freq, psd_dict]
 
 	def get_kernel_list(self):
 		pass
