@@ -1,11 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import celerite
 import corner
 from astropy.stats import LombScargle
-
-#Internal imports
-from backend import setup_gp, scale_params
 
 def plot_corner(gp, samples):
 	labels = gp.model.get_parameters_latex()
