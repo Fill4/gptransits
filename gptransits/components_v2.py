@@ -44,7 +44,7 @@ class Component(object):
 class Granulation(Component):
 	name = 'Granulation'
 	npars = 2
-	parameter_names = ['amplitude', 'frequency']
+	parameter_names = ['A_gran', 'w0_gran']
 	parameter_latex_names = [r'$A_{gran}$', r'$\omega_{gran}$']
 	parameter_units = ['ppm', r'$\mu$Hz']
 	default_priors = np.array([[20, 200], [10, 200]])
@@ -74,8 +74,8 @@ class Granulation(Component):
 class OscillationBump(Component):
 	name = 'OscillationBump'
 	npars = 3
-	parameter_names = ['amplitude', 'Q', 'frequency']
-	parameter_latex_names = [r'$A_{bump}$', r'$Q_{bump}$', r'$\omega_{bump}$']
+	parameter_names = ['A_bump', 'Q', 'nu_max']
+	parameter_latex_names = [r'$A_{bump}$', r'$Q_{bump}$', r'$\nu_{max}$']
 	parameter_units = ['ppm', '', r'$\mu$Hz']
 	default_priors = np.array([[10, 250], [1.2, 10], [100, 200]])
 
@@ -208,11 +208,14 @@ class Model(object):
 
 class GP(object):
 	def __init__(self, model, time):
-		self.model = model
+		if isinstance(model, Model):
+					self.model = model
+				else:
+					raise ValueError("model arg must be of type Model")
 		self.gp = celerite.GP(model.get_kernel())
 		self.gp.compute(time/1e6)
 
-	def set_parameters(self, params):
+	def set_parameters(self):
 		celerite_params = self.model.get_parameters_celerite()
 		self.gp.set_parameter_vector(celerite_params)
 

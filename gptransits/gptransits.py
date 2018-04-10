@@ -7,97 +7,106 @@ gaussian processes to fit the remaining stochastic noise
 
 import numpy as np
 import matplotlib.pyplot as plt
-import scipy.stats
+# import scipy.stats
 import timeit
-import sys, os, os.path
+import sys, os
 import argparse
 import logging
 
 #Internal imports
-from backend import setup_priors
+# from backend import setup_priors
+from components_v2 import GP
 from mcmc import *
-from read_data import read_data
 import plotting
 
-def main(dataFolder, resultsFolder, model, prior_settings, plot_flags, nwalkers, iterations, burnin):
+# def main(dataFolder, resultsFolder, model, prior_settings, plot_flags, nwalkers, iterations, burnin):
+def main(dataFolder, resultsFolder, model, plot_flags, nwalkers, iterations, burnin):
 
-	#parser = argparse.ArgumentParser(description='Parse arguments')
-	#group = parser.add_mutually_exclusive_group(required=True)
-	#group.add_argument('file', '-f', type=str, help='Filename with lightcurve data', required=False)
-	#group.add_argument('list', '-l', type=str, help='Filename with list of lightcurve files', required=False)
-	#parser.add_argument('output', '-o', type=str, help='Folder where to write the results. Folder will be created if it doesnt exist')
-	#parser.add_argument('verbose', '-v', type=bool, default=True, help='Enable verbose mode')
-	#args = parser.parse_args()
+	# Start timer
+	logging.info('Starting {:} ...'.format(filename))
+	init_time = timeit.default_timer()
+	
+	#------------------------------------------------------------------
+	#	INPUT
+	#------------------------------------------------------------------
 
-	# If there is no folder, create it. Same for parameters file
-	# resfolder = 'results/{}'.format(resultsFolder)
-	resfolder = resultsFolder
-	resfile = '{}/parameters.txt'.format(resfolder)
-	if os.path.isdir(resfolder):
-		pass
-	else:
-		os.mkdir(resfolder)
-	if os.path.exists(resfile):
-		pass
-	else:
-		z = open(resfile, 'w')
-		#z.write('#{:17}  {:^10}  {:^10}  {:^10}  {:^10}  {:^10}  {:^10}  {:^10}\n'.format(
-		#'Filename', 'Amp_1', 'Tscale_1', 'Amp_2', 'Tscale_2', 'Amp_osc', 'nu_max', 'osc_bump'))
-		z.close()
+	# Handle the input flags of the script
+	parser = argparse.ArgumentParser(description='Parse arguments')
+	group = parser.add_mutually_exclusive_group(required=True)
+	group.add_argument('--file', '-f', type=str, dest='input_file', help='Filename with lightcurve data', required=False)
+	group.add_argument('--list', '-l', type=str, dest='input_list', help='Filename with list of lightcurve files', required=False)
+	parser.add_argument('--output', '-o', type=str, dest='output', help='Folder where to write the results. Folder will be created if it doesnt exist')
+	parser.add_argument('--verbose', '-v', type=bool, default=True, dest='verbose', help='Enable verbose mode')
+	args = parser.parse_args()
 
-	for filename in os.listdir(dataFolder):
+	if args.verbose:
+		logging.basicConfig(format='%(message)s', level=logging.INFO)
 
-		#name = os.path.splitext(os.path.basename(filename))[0]
-		name = os.path.splitext(filename)[0]
-		# Add filename to buffer and define variable with full path to file
-		write_buffer = '{:15}'.format(name)
+	if args.output:
+		if not os.path.isdir(args.output):
+			os.mkdir(args.output)
+	# if not os.path.exists('{}/parameters.txt'.format(args.output)):
 
-		# Start timer
-		logging.info('Starting {:} ...'.format(name))
-		itime_script = timeit.default_timer()
+	filename = os.path.splitext(os.path.basename(args.input_file))[0]
 
-		# Bundle data in tuple for organisation
-		data = read_data(dataFolder + filename)#, Nmax, offset, fits_options)
+	#------------------------------------------------------------------
+	#	MAIN
+	#------------------------------------------------------------------
 
-		# Initiate prior distributions according to options set by user
-		priors = setup_priors(prior_settings)
-		gp = GP(model, data[0])
+	# Read data from input file and instanciate the GP using the time array and model
+	data = np.loadtxt(args.input_file, unpack=True)
+	gp = GP(model, data[0])
 
-		# Run run_minimizationn
-		#backend.run_minimization(data, priors, plot=plot)
+	# Run Minimizationn
+	#backend.run_minimization(data, priors, plot=plot)
 
-		# Run MCMC
-		samples, final_params = mcmc(data, gp, priors, plot_flags, nwalkers=nwalkers, iterations=iterations, burnin=burnin)
+	# Run MCMC
+	samples, results = mcmc(data, gp, plot_flags, nwalkers=nwalkers, iterations=iterations, burnin=burnin)
 
-		# Write final params from mcmc to buffer
-		for i in range(len(final_params)):
-			write_buffer += '  {:^8.3f}'.format(final_params[i])
-		write_buffer += '\n'
+	# Replace model and gp parameters with median from results
+	gp.model.set_parameters(results[1])
+	gp.set_parameters(results[1])
 
-		# Write buffer to results file
-		z = open(resfile, 'a')
-		z.write(write_buffer)
-		z.close()
+	# If verbose mode, display the values obtained for each parameter
+	params, names = (gp.model.get_parameters(), get_parameters_names())
+	logging.info(''.join(["{:10}{:3}{:10.4f}\n".format(names[i], "-", params[i]) for i in range(len(params))]))
 
-		# Plotting
-		# fig_index = plt.get_fignums()
+	#------------------------------------------------------------------
+	#	OUTPUT
+	#------------------------------------------------------------------
 
-		if plot_flags['plot_gp']:
-			plotting.plot_gp(gp, data)
-		if plot_flags['plot_corner']:
-			plotting.plot_corner(gp, samples)
-		if plot_flags['plot_psd']:
-			plotting.plot_psd(gp, data)
-		if any(plot_flags.values()):
-			plt.show()
-			plt.close('all')
+	# Write final parameters and uncertainties to output buffer
+	header_buffer = '{:16}'.format('File')
+	output_buffer = '{:16}'.format(filename)
+	header_buffer += ''.join(['{:8}'.format(parameter_name for parameter_name in model.get_parameters_names())])
 
-		# Print execution time
-		time_script = timeit.default_timer() - itime_script
-		logging.info("Complete execution time: {:.4f} usec".format(time_script))
-		logging.info('End\n')
+	output_buffer += '\n'
 
-		sys.exit()
+	# Write buffer to results file
+	z = open(resfile, 'a')
+	z.write(output_buffer)
+	z.close()
+
+	#------------------------------------------------------------------
+	#	PLOT
+	#------------------------------------------------------------------
+	
+	if plot_flags['plot_gp']:
+		plotting.plot_gp(gp, data)
+	if plot_flags['plot_corner']:
+		plotting.plot_corner(gp, samples)
+	if plot_flags['plot_psd']:
+		plotting.plot_psd(gp, data)
+	if any(plot_flags.values()):
+		plt.show()
+		plt.close('all')
+
+	# Print execution time
+	execution_time = timeit.default_timer() - init_time
+	logging.info("Complete execution time: {:.4f} usec".format(execution_time))
+	logging.info('End\n')
+
+
 
 def diamondsRunAll():
 	home = '/mnt/c/Users/Filipe/Downloads/work/phd'
