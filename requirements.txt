@@ -1,13 +1,6 @@
-numpy
-matplotlib
-pyfits
-emcee
-celerite
-george
-scipy
-timeit
-astropy
-statsmodels
-shutil
-subprocess
-math
+celerite == 0.3.0
+emcee == 3.0.0.dev0		#Dev version
+h5py == 2.8.0rc1		#Dev version	#To avoid warnings from deprecated dtypes
+pyfits == 3.4
+matplotlib == 2.2.2
+numpy == 1.14.2
