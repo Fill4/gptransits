@@ -7,15 +7,14 @@ class Component(object):
 	name = ''
 	npars = 0
 	parameter_names = []
-	default_priors = []
+	default_prior = []
 
 	def __init__(self, *args, **kwargs):
-		if 'priors' in kwargs:
-			self.priors = np.array(kwargs.get(priors))
+		if 'prior' in kwargs:
+			self.prior_settings = np.array(kwargs.get('prior'))
 		else:
-			means = [prior[0] for prior in self.default_priors]
-			stds = [prior[1]-prior[0] for prior in self.default_priors]
-			self.priors = uniform(means, stds)
+			self.prior_settings = self.default_prior
+		self.setup_prior()
 
 		if len(args):
 			if len(args) != self.npars:
@@ -23,6 +22,11 @@ class Component(object):
 			self.parameter_array = np.array(args)
 		else:
 			self.parameter_array = self.sample_prior()[0]
+
+	def setup_prior(self):
+		means = [prior[0] for prior in self.prior_settings]
+		stds = [prior[1]-prior[0] for prior in self.prior_settings]
+		self.priors = uniform(means, stds)
 
 	def sample_prior(self, num=1):
 		return self.priors.rvs([num, self.npars])
@@ -48,7 +52,7 @@ class Granulation(Component):
 	parameter_names = ['A_gran', 'w0_gran']
 	parameter_latex_names = [r'$A_{gran}$', r'$\omega_{gran}$']
 	parameter_units = ['ppm', r'$\mu$Hz']
-	default_priors = np.array([[20, 200], [10, 200]])
+	default_prior = np.array([[20, 200], [10, 200]])
 
 	def __repr__(self):
 		return '{0} ({names[0]}:{values[0]:.3f} {units[0]}, {names[1]}:{values[1]:.3f} {units[1]})'.format(self.name, 
@@ -78,7 +82,7 @@ class OscillationBump(Component):
 	parameter_names = ['A_bump', 'Q', 'nu_max']
 	parameter_latex_names = [r'$A_{bump}$', r'$Q_{bump}$', r'$\nu_{max}$']
 	parameter_units = ['ppm', '', r'$\mu$Hz']
-	default_priors = np.array([[10, 250], [1.2, 10], [100, 200]])
+	default_prior = np.array([[10, 250], [1.2, 10], [100, 200]])
 
 	def __repr__(self):
 		return '{0}({names[0]}:{values[0]:.3f} {units[0]}, {names[1]}:{values[1]:.3f} {units[1]}, {names[2]}:{values[2]:.3f} {units[2]})'.format(self.name, 
@@ -107,7 +111,7 @@ class WhiteNoise(Component):
 	parameter_names = ['jitter']
 	parameter_latex_names = ['jitter']
 	parameter_units = ['ppm']
-	default_priors = np.array([[10, 100]])
+	default_prior = np.array([[10, 100]])
 
 	def __repr__(self):
 		return '{0}({names[0]}:{values[0]:.3f} {units[0]})'.format(self.name, names=self.parameter_names, values=self.parameter_array, units=self.parameter_units)

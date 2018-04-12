@@ -1,3 +1,5 @@
+from component import *
+
 # TODO
 # Class to implement the logic to integrate both MeanModel and GPModel in the same container
 # Purpose is to abstract the logic of the likelihood calculation when dealing with parameters of both models together
@@ -91,9 +93,9 @@ class GPModel(object):
 class GP(object):
 	def __init__(self, model, time):
 		if isinstance(model, GPModel):
-					self.model = model
-				else:
-					raise ValueError("model arg must be of type GPModel")
+			self.model = model
+		else:
+			raise ValueError("model arg must be of type GPModel")
 		self.gp = celerite.GP(model.get_kernel())
 		self.gp.compute(time/1e6)
 

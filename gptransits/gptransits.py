@@ -15,17 +15,16 @@ import logging
 
 #Internal imports
 # from backend import setup_priors
-from components_v2 import GP
+from model import GP
 from mcmc import *
-import plotting
+import plot
 
 # def main(dataFolder, resultsFolder, model, prior_settings, plot_flags, nwalkers, iterations, burnin):
 def main(dataFolder, resultsFolder, model, plot_flags, nwalkers, iterations, burnin):
-
-	# Start timer
-	logging.info('Starting {:} ...'.format(filename))
-	init_time = timeit.default_timer()
 	
+	# Log start time
+	init_time = timeit.default_timer()
+
 	#------------------------------------------------------------------
 	#	INPUT
 	#------------------------------------------------------------------
@@ -48,6 +47,7 @@ def main(dataFolder, resultsFolder, model, plot_flags, nwalkers, iterations, bur
 	# if not os.path.exists('{}/parameters.txt'.format(args.output)):
 
 	filename = os.path.splitext(os.path.basename(args.input_file))[0]
+	logging.info('Starting {:} ...'.format(filename))
 
 	#------------------------------------------------------------------
 	#	MAIN
@@ -56,6 +56,7 @@ def main(dataFolder, resultsFolder, model, plot_flags, nwalkers, iterations, bur
 	# Read data from input file and instanciate the GP using the time array and model
 	data = np.loadtxt(args.input_file, unpack=True)
 	gp = GP(model, data[0])
+	logging.info(gp.model.get_parameters_names())
 
 	# Run Minimizationn
 	#backend.run_minimization(data, priors, plot=plot)
@@ -65,10 +66,10 @@ def main(dataFolder, resultsFolder, model, plot_flags, nwalkers, iterations, bur
 
 	# Replace model and gp parameters with median from results
 	gp.model.set_parameters(results[1])
-	gp.set_parameters(results[1])
+	gp.set_parameters()
 
 	# If verbose mode, display the values obtained for each parameter
-	params, names = (gp.model.get_parameters(), get_parameters_names())
+	params, names = (gp.model.get_parameters(), gp.model.get_parameters_names())
 	logging.info(''.join(["{:10}{:3}{:10.4f}\n".format(names[i], "-", params[i]) for i in range(len(params))]))
 
 	#------------------------------------------------------------------
@@ -78,7 +79,7 @@ def main(dataFolder, resultsFolder, model, plot_flags, nwalkers, iterations, bur
 	# Write final parameters and uncertainties to output buffer
 	header_buffer = '{:16}'.format('File')
 	output_buffer = '{:16}'.format(filename)
-	header_buffer += ''.join(['{:8}'.format(parameter_name for parameter_name in model.get_parameters_names())])
+	# header_buffer += ''.join(['{:8}'.format(parameter_name for parameter_name in gp.model.get_parameters_names())])
 
 	output_buffer += '\n'
 
@@ -92,11 +93,11 @@ def main(dataFolder, resultsFolder, model, plot_flags, nwalkers, iterations, bur
 	#------------------------------------------------------------------
 	
 	if plot_flags['plot_gp']:
-		plotting.plot_gp(gp, data)
+		plot.plot_gp(gp, data)
 	if plot_flags['plot_corner']:
-		plotting.plot_corner(gp, samples)
+		plot.plot_corner(gp, samples)
 	if plot_flags['plot_psd']:
-		plotting.plot_psd(gp, data)
+		plot.plot_psd(gp, data)
 	if any(plot_flags.values()):
 		plt.show()
 		plt.close('all')

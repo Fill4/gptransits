@@ -6,21 +6,22 @@ gaussian processes to fit the remaining stellar stochastic signals
 '''
 
 import gptransits
-from components_v2 import *
+from component import *
+from model import GPModel
 
 # Parameters
 plot_flags = {'plot_gp':0, 'plot_corner':0, 'plot_psd':0}
 
 verbose = True
 
-burnin = 200
-iterations = 500
-nwalkers = 16
+burnin = 500
+iterations = 4000
+nwalkers = 20
 
 #--------------------------------------------------------------
 #--------------------------------------------------------------
 
-model = Model(OscillationBump(), Granulation(), Granulation(), WhiteNoise())
+model = GPModel(OscillationBump(), Granulation(prior=[[20,200],[10,100]]), Granulation(prior=[[20,200],[90,200]]), WhiteNoise())
 
 data_dir = './results/TEST/'
 gptransits.main(data_dir, data_dir, model, plot_flags, nwalkers, iterations, burnin)
