@@ -103,7 +103,7 @@ def calculateStatisticsForParameters(starMatrix):
 
 def plotDiamondsGPComparisonFull():
 
-	resultsFolder = 'results/diamonds_comparison/'
+	resultsFolder = 'presentation/'
 	for model in [1, 2]:
 		diamondsResultsFile = 'results/diamonds_model{}.txt'.format(model)
 		gpResultsFile = 'results/gp_model{}.txt'.format(model)
@@ -127,15 +127,25 @@ def plotDiamondsGPComparisonFull():
 
 		
 
-		ncols = model + 2
-		nrows = 2
+		ncols = 2 + model
+		nrows = 2 
+		font = 18
 
-		fig, axs = plt.subplots(nrows=nrows, ncols=ncols, num=1, figsize=(10 + (model*5), 10))
-		fig.suptitle(modelNames[model-1], fontsize=16)
+		# fig, axs = plt.subplots(nrows=nrows, ncols=ncols, num=1, figsize=(12, 12 + (model*6)))
+		fig, axs = plt.subplots(nrows=nrows, ncols=ncols, num=1, figsize=(12, 12 + (model*6)))
+		# fig.suptitle(modelNames[model-1], fontsize=16)
 		#------------
 		i=0
 		p=0
+
+		# gpData[:,-2] = np.log(gpData[:,-2])
+		# gpData[:,-1] = np.log(gpData[:,-1])
+		# gpData[:,-2] = gpData[:,-2] / 10
+		# gpData[:,-1] = gpData[:,-1] / 10
+
 		for ax in axs.reshape(-1, order='F'): #axs.reshape(-1, order='F') to get columns first
+			
+
 			plot = ax.scatter(gpData[:,i], diamondsData[:,i], zorder=5, c=starsData[2], cmap="autumn")
 			ax.errorbar(gpData[:,i], diamondsData[:,i], yerr=diamondsData[:,i+1], xerr=gpData[:,i+1], fmt=None, marker=None, mew=0, color=(0,0,0.8,0.4))
 			#if i == len(axs)-1:
@@ -150,27 +160,28 @@ def plotDiamondsGPComparisonFull():
 			rvalue = linreg.rvalue
 			ax.plot(x, x*linreg.slope + linreg.intercept, ls="-", c="k", label='Linear fit', alpha=0.6)
 
-			ax.set_title(r'{:}  -->  RValue = {:.4f}'.format(parameterNames[p], abs(rvalue)), fontsize=16)
+			# ax.set_title(r'{:}  -->  RValue = {:.4f}'.format(parameterNames[p], abs(rvalue)), fontsize=16)
 			#if ax.is_last_row():
-			ax.set_xlabel(r'Celerite {:}'.format(units[p]),fontsize=14)
+			ax.set_xlabel(r'Celerite {:}'.format(units[p]),fontsize=font)
 			#if ax.is_first_col():
-			ax.set_ylabel(r'Diamonds {:}'.format(units[p]),fontsize=14)
-			ax.tick_params(axis='both', which='major', labelsize=14, direction='out')
-			ax.legend(fontsize=14)
+			ax.set_ylabel(r'Diamonds {:}'.format(units[p]),fontsize=font)
+			ax.tick_params(axis='both', which='major', labelsize=font, direction='out')
+			ax.legend(fontsize=font, loc='upper left')
 
 			i+=2
 			p+=1
 
 		#fig.subplots_adjust(right=0.9)
-		cbar_ax = fig.add_axes([0.91, 0.15, 0.04, 0.7])
-		cbar = fig.colorbar(plot, cax=cbar_ax)
+		cbar_ax = fig.add_axes([0.15, 0.05, 0.7, 0.015])
+		cbar_ax.tick_params(labelsize=font) 
+		cbar = fig.colorbar(plot, cax=cbar_ax, orientation='horizontal')
 		#cbar = fig.colorbar(plot, ax=axs.ravel().tolist())
-		cbar.set_label(r'log($g$)', fontsize=14)
+		cbar.set_label(r'log($g$)', fontsize=font)
 
-		fig.tight_layout(rect=[0, 0.03, 0.90, 0.95])
-		plt.savefig('{}/model{}_comparison.svg'.format(resultsFolder, model))
+		fig.tight_layout(rect=[0.03, 0.07, 0.92, 0.98])
+		# plt.savefig('{}/model{}_comparison.svg'.format(resultsFolder, model))
 		plt.savefig('{}/model{}_comparison.png'.format(resultsFolder, model), dpi=300)
-		plt.show()
+		# plt.show()
 		plt.close('all')
 
 
@@ -259,6 +270,7 @@ def plotDiamondsGPComparisonLondres2018():
 		plt.close('all')
 
 if __name__ == '__main__':
-	#joinGPResults()
-	#joinDiamondsResults()
-	plotDiamondsGPComparisonLondres2018()
+	# joinGPResults()
+	# joinDiamondsResults()
+	# plotDiamondsGPComparisonLondres2018()
+	plotDiamondsGPComparisonFull()
