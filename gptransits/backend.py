@@ -11,8 +11,8 @@ import sys, os
 def mean_model(params, time):
 	return np.zeros(len(time))
 
-# def log_likelihood(params, time, flux, error, priors, gp):
-def log_likelihood(params, time, flux, error, gp):
+# def log_likelihood(params, time, flux, error, gp):
+def log_likelihood(params, time, flux, gp):
 
 	gp.model.set_parameters(params)
 	lnprior = gp.model.prior_evaluate()

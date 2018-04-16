@@ -41,22 +41,23 @@ def main(dataFolder, resultsFolder, model, plot_flags, nwalkers, iterations, bur
 	if args.verbose:
 		logging.basicConfig(format='%(message)s', level=logging.INFO)
 
+	if args.input_file:
+		filename = os.path.splitext(os.path.basename(args.input_file))[0]
+	else:
+		pass
+	logging.info('Starting {:} ...'.format(filename))
+
 	if args.output:
 		if not os.path.isdir(args.output):
 			os.mkdir(args.output)
-	# if not os.path.exists('{}/parameters.txt'.format(args.output)):
-
-	filename = os.path.splitext(os.path.basename(args.input_file))[0]
-	logging.info('Starting {:} ...'.format(filename))
 
 	#------------------------------------------------------------------
-	#	MAIN
+	#	MAIN - TODO:Separate from arg parsing
 	#------------------------------------------------------------------
 
 	# Read data from input file and instanciate the GP using the time array and model
 	data = np.loadtxt(args.input_file, unpack=True)
 	gp = GP(model, data[0])
-	logging.info(gp.model.get_parameters_names())
 
 	# Run Minimizationn
 	#backend.run_minimization(data, priors, plot=plot)
@@ -71,22 +72,29 @@ def main(dataFolder, resultsFolder, model, plot_flags, nwalkers, iterations, bur
 	# If verbose mode, display the values obtained for each parameter
 	params, names = (gp.model.get_parameters(), gp.model.get_parameters_names())
 	logging.info(''.join(["{:10}{:3}{:10.4f}\n".format(names[i], "-", params[i]) for i in range(len(params))]))
+	logging.info(np.std(data[1]))
 
 	#------------------------------------------------------------------
 	#	OUTPUT
 	#------------------------------------------------------------------
 
-	# Write final parameters and uncertainties to output buffer
-	header_buffer = '{:16}'.format('File')
-	output_buffer = '{:16}'.format(filename)
-	# header_buffer += ''.join(['{:8}'.format(parameter_name for parameter_name in gp.model.get_parameters_names())])
+	if args.output:
+		results_file = '{}/{}.out'.format(args.output, filename)
+		if not os.path.exists(results_file):
+			z = open(results_file, 'w')
+		else:
+			z = open(results_file, 'a')	
+		
+		# Write final parameters and uncertainties to output buffer
+		output_buffer = '{:<12} {:}'.format('Filename:', filename)
+		output_buffer += ''.join(['{:<12}'.format(parameter_name for parameter_name in gp.model.get_parameters_names())])
 
-	output_buffer += '\n'
+		output_buffer += '\n'
 
-	# Write buffer to results file
-	z = open(resfile, 'a')
-	z.write(output_buffer)
-	z.close()
+		# Write buffer to results file
+		
+		z.write(output_buffer)
+		z.close()
 
 	#------------------------------------------------------------------
 	#	PLOT

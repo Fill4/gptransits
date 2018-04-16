@@ -111,7 +111,7 @@ class WhiteNoise(Component):
 	parameter_names = ['jitter']
 	parameter_latex_names = ['jitter']
 	parameter_units = ['ppm']
-	default_prior = np.array([[10, 100]])
+	default_prior = np.array([[1, 100]])
 
 	def __repr__(self):
 		return '{0}({names[0]}:{values[0]:.3f} {units[0]})'.format(self.name, names=self.parameter_names, values=self.parameter_array, units=self.parameter_units)

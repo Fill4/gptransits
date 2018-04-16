@@ -112,7 +112,7 @@ def plotDiamondsGPComparisonFull():
 
 		modelNames = ['1 Granulation + Oscillation Bump', '2 Granulation + Oscillation Bump']
 
-		parameterNames = ['A$_{gran,1}$', 'w$_{gran,1}$', 'A$_{gran,2}$', 'w$_{gran,2}$', 'A$_{bump}$', 'w$_{bump}$', '$\sigma_{bump}$/Q$_{bump}$', 'Jitter']
+		parameterNames = ['A$_{gran,1}$', 'w$_{gran,1}$', 'A$_{gran,2}$', 'w$_{gran,2}$', 'A$_{bump}$', '$\\nu_{max}$', '$\sigma_{bump}$/Q$_{bump}$', 'Jitter']
 		units = ['[ppm]', '[$\mu$Hz]', '[ppm]', '[$\mu$Hz]', '[ppm]', '[$\mu$Hz]', '[$\mu$Hz]', '[ppm]']
 		if model == 1:
 			parameterNames = parameterNames[0:2] + parameterNames[4:8]
@@ -126,9 +126,8 @@ def plotDiamondsGPComparisonFull():
 		#gpData[:,-2:len(gpData)] /= 2*np.pi
 
 		
-
-		ncols = 2 + model
-		nrows = 2 
+		ncols = 2 
+		nrows = 2 + model
 		font = 18
 
 		# fig, axs = plt.subplots(nrows=nrows, ncols=ncols, num=1, figsize=(12, 12 + (model*6)))
@@ -143,7 +142,7 @@ def plotDiamondsGPComparisonFull():
 		# gpData[:,-2] = gpData[:,-2] / 10
 		# gpData[:,-1] = gpData[:,-1] / 10
 
-		for ax in axs.reshape(-1, order='F'): #axs.reshape(-1, order='F') to get columns first
+		for ax in axs.reshape(-1): #axs.reshape(-1, order='F') to get columns first
 			
 
 			plot = ax.scatter(gpData[:,i], diamondsData[:,i], zorder=5, c=starsData[2], cmap="autumn")
@@ -161,6 +160,7 @@ def plotDiamondsGPComparisonFull():
 			ax.plot(x, x*linreg.slope + linreg.intercept, ls="-", c="k", label='Linear fit', alpha=0.6)
 
 			# ax.set_title(r'{:}  -->  RValue = {:.4f}'.format(parameterNames[p], abs(rvalue)), fontsize=16)
+			ax.set_title(r'{:}'.format(parameterNames[p]), fontsize=font+2)
 			#if ax.is_last_row():
 			ax.set_xlabel(r'Celerite {:}'.format(units[p]),fontsize=font)
 			#if ax.is_first_col():
