@@ -10,7 +10,7 @@ from component import *
 from model import GPModel
 
 # Parameters
-plot_flags = {'plot_gp':0, 'plot_corner':0, 'plot_psd':0}
+plot_flags = {'plot_gp':0, 'plot_corner':0, 'plot_psd':1}
 
 verbose = True
 
@@ -21,7 +21,8 @@ nwalkers = 20
 #--------------------------------------------------------------
 #--------------------------------------------------------------
 
-model = GPModel(OscillationBump(), Granulation(prior=[[20,200],[10,100]]), Granulation(prior=[[20,200],[90,200]]), WhiteNoise())
+# model = GPModel(OscillationBump(), Granulation(prior=[[20,200],[10,100]]), Granulation(prior=[[20,200],[90,200]]), WhiteNoise())
+model = GPModel(WhiteNoise(prior=[[1, 200]]))
 
 data_dir = './results/TEST/'
 gptransits.main(data_dir, data_dir, model, plot_flags, nwalkers, iterations, burnin)

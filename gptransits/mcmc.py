@@ -17,14 +17,16 @@ def mcmc(data, gp, plot_flags, nwalkers=20, iterations=2000, burnin=500):
 
 	init_time_mcmc = timeit.default_timer()
 
-	time, flux, error = data
+	# time, flux, error = data
+	time, flux = data
 	
 	# Draw samples from the prior distributions to have initial values for all the walkers
 	init_params = gp.model.prior_sample(nwalkers)
 	ndim = init_params.shape[1]
 
 	# Instanciate the sampler. Parameters arg is added by samples to log_likelihood function
-	sampler = emcee.EnsembleSampler(nwalkers, ndim, log_likelihood, args=(time, flux, error, gp))
+	# sampler = emcee.EnsembleSampler(nwalkers, ndim, log_likelihood, args=(time, flux, error, gp))
+	sampler = emcee.EnsembleSampler(nwalkers, ndim, log_likelihood, args=(time, flux, gp))
 
 	# Burn-in
 	logging.info('Runnning Burn-in ...')

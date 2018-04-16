@@ -49,7 +49,7 @@ def plot_psd(gp, data, include_data=True):
 	for name, power in power_dict.items():
 		# TODO: Need alternative to fix white noise psd
 		if name == "WhiteNoise":
-			power += 3.91
+			power += 0.0
 		if name != "OscillationBump":
 			nobump_power += power
 		full_power += power
