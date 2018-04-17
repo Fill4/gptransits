@@ -108,8 +108,8 @@ class OscillationBump(Component):
 class WhiteNoise(Component):
 	name = 'WhiteNoise'
 	npars = 1
-	parameter_names = ['jitter']
-	parameter_latex_names = ['jitter']
+	parameter_names = ['Jitter']
+	parameter_latex_names = ['Jitter']
 	parameter_units = ['ppm']
 	default_prior = np.array([[1, 100]])
 
