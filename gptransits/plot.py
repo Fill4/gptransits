@@ -3,23 +3,21 @@ import matplotlib.pyplot as plt
 import corner
 from astropy.stats import LombScargle
 
-def plot_corner(gp, samples):
-	labels = gp.model.get_parameters_latex()
-	params = gp.model.get_parameters()
+def plot_corner(model, samples):
+	labels = model.gp.gp_model.get_parameters_latex()
+	params = model.gp.gp_model.get_parameters()
 	fig2 = corner.corner(samples, labels=labels, quantiles=[0.5], show_titles=True, title_fmt='.3f', truths=params, num=2)
 
-def plot_gp(gp, data):
-
-	time, flux, error = data
+def plot_gp(model, data):
 
 	fig1, ax1 = plt.subplots(num=1, figsize=(14, 7))
 	
 	# Plot initial data with errors in both subplots
-	ax1.errorbar(time/(24*3600), flux, yerr=error, fmt=".k", capsize=0, label= 'Flux', markersize='3', elinewidth=1)
-	x = np.linspace(time[0], time[-1], num=2*time.size)
+	ax1.errorbar(model.time/(24*3600), model.flux, yerr=model.error, fmt=".k", capsize=0, label= 'Flux', markersize='3', elinewidth=1)
+	x = np.linspace(model.time[0], model.time[-1], num=2*model.time.size)
 
 	# Plot conditional predictive distribution of the model in upper plot
-	mu, cov = gp.predict(flux, x/1e6)
+	mu, cov = model.gp.predict(model.flux, x/1e6)
 	std = np.sqrt(np.diag(cov))
 	std = np.nan_to_num(std)
 	
@@ -33,20 +31,18 @@ def plot_gp(gp, data):
 	ax1.tick_params(axis='both', which='major', labelsize="medium")
 	ax1.legend(loc='upper left', fontsize="medium")
 
-def plot_psd(gp, data, include_data=True):
-	
-	time, flux, error = data
+def plot_psd(model, data, include_data=True):
 
 	ls_dict = {"Granulation": "--", "OscillationBump": "-.", "WhiteNoise": ":"}
 	alpha_dict = {"Granulation": 0.8, "OscillationBump": 0.8, "WhiteNoise": 0.6}
 	label_dict = {"Granulation": "Granulation", "OscillationBump": "Gaussian envelope", "WhiteNoise": "White noise"}
 
-	freq, power_dict = gp.model.get_psd(time)
+	freq, power_dict = model.gp.gp_model.get_psd(model.time)
 	nobump_power = np.zeros(freq.size)
 	full_power = np.zeros(freq.size)
 	
 	fig3, ax3 = plt.subplots(num=3, figsize=(14, 7))
-	for name, power in power_dict.items():
+	for name, power in power_dict:
 		# TODO: Need alternative to fix white noise psd
 		if name == "WhiteNoise":
 			power += 0.0
@@ -69,7 +65,7 @@ def plot_psd(gp, data, include_data=True):
 	
 	if include_data:
 		# Psd from data
-		freq2, power = LombScargle(time/1e6, flux).autopower(nyquist_factor=1, normalization='psd', samples_per_peak=1)
-		ax3.loglog(freq2, power/time.size, color='k', alpha=0.4)
+		freq2, power = LombScargle(model.time/1e6, model.flux).autopower(nyquist_factor=1, normalization='psd', samples_per_peak=1)
+		ax3.loglog(freq2, power/model.time.size, color='k', alpha=0.4)
 	
 	ax3.legend(fontsize="large", loc="upper left")

@@ -1,15 +1,49 @@
+import numpy as np
 from component import *
 
 # TODO
 # Class to implement the logic to integrate both MeanModel and GPModel in the same container
 # Purpose is to abstract the logic of the likelihood calculation when dealing with parameters of both models together
 class Model(object):
-	pass
+	
+	def __init__(self, mean_model, gp_model, data):
+		try:
+			self.time, self.flux, self.error = data
+		except ValueError:
+			try:
+				self.time, self.flux = data
+			except ValueError:
+				print("Data needs to have at least time and flux arrays")
+
+		if isinstance(mean_model, MeanModel):
+			self.mean_model = mean_model
+		else:
+			raise ValueError("First argument must be of type MeanModel")
+
+		if isinstance(gp_model, GPModel):
+			self.gp_model = gp_model
+			self.gp = GP(self.gp_model, self.time)
+		else:
+			raise ValueError("Second argument must be of type GPModel")
+
+	def log_likelihood(self, params):
+		self.gp.gp_model.set_parameters(params)
+		lnprior = self.gp.gp_model.prior_evaluate()
+		if not np.isfinite(lnprior):
+			return -np.inf
+		self.gp.set_parameters()
+
+		lnlikelihood = self.gp.log_likelihood(self.flux - self.mean_model.compute(params, self.time, self.flux))
+		
+		return lnprior + lnlikelihood
+
 
 # TODO
 # Parametric model of the data that has a defined functional form
 class MeanModel(object):
-	pass
+	
+	def compute(self, params, time, flux):
+		return 0
 
 # Model that contains the components of the GP. Might be joined with GP in the future.
 class GPModel(object):
@@ -91,16 +125,16 @@ class GPModel(object):
 
 # Class that implements the GP methods of the GPModel and interfaces with celerite methods
 class GP(object):
-	def __init__(self, model, time):
-		if isinstance(model, GPModel):
-			self.model = model
+	def __init__(self, gp_model, time):
+		if isinstance(gp_model, GPModel):
+			self.gp_model = gp_model
 		else:
 			raise ValueError("model arg must be of type GPModel")
-		self.gp = celerite.GP(model.get_kernel())
+		self.gp = celerite.GP(self.gp_model.get_kernel())
 		self.gp.compute(time/1e6)
 
 	def set_parameters(self):
-		celerite_params = self.model.get_parameters_celerite()
+		celerite_params = self.gp_model.get_parameters_celerite()
 		self.gp.set_parameter_vector(celerite_params)
 
 	def log_likelihood(self, residuals):

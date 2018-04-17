@@ -15,12 +15,12 @@ import logging
 
 #Internal imports
 # from backend import setup_priors
-from model import GP
+from model import *
 from mcmc import *
 import plot
 
 # def main(dataFolder, resultsFolder, model, prior_settings, plot_flags, nwalkers, iterations, burnin):
-def main(dataFolder, resultsFolder, model, plot_flags, nwalkers, iterations, burnin):
+def main(mean_model, gp_model, plot_flags, nwalkers, iterations, burnin):
 	
 	# Log start time
 	init_time = timeit.default_timer()
@@ -57,22 +57,21 @@ def main(dataFolder, resultsFolder, model, plot_flags, nwalkers, iterations, bur
 
 	# Read data from input file and instanciate the GP using the time array and model
 	data = np.loadtxt(args.input_file, unpack=True)
-	gp = GP(model, data[0])
+	model = Model(mean_model, gp_model, data)
 
 	# Run Minimizationn
 	#backend.run_minimization(data, priors, plot=plot)
 
 	# Run MCMC
-	samples, results = mcmc(data, gp, plot_flags, nwalkers=nwalkers, iterations=iterations, burnin=burnin)
+	samples, results = mcmc(model, nwalkers=nwalkers, iterations=iterations, burnin=burnin)
 
 	# Replace model and gp parameters with median from results
-	gp.model.set_parameters(results[1])
-	gp.set_parameters()
+	model.gp.gp_model.set_parameters(results[1])
+	model.gp.set_parameters()
 
 	# If verbose mode, display the values obtained for each parameter
-	params, names = (gp.model.get_parameters(), gp.model.get_parameters_names())
+	params, names = (model.gp.gp_model.get_parameters(), model.gp.gp_model.get_parameters_names())
 	logging.info(''.join(["{:10}{:3}{:10.4f}\n".format(names[i], "-", params[i]) for i in range(len(params))]))
-	logging.info(np.std(data[1]))
 
 	#------------------------------------------------------------------
 	#	OUTPUT
@@ -87,7 +86,7 @@ def main(dataFolder, resultsFolder, model, plot_flags, nwalkers, iterations, bur
 		
 		# Write final parameters and uncertainties to output buffer
 		output_buffer = '{:<12} {:}'.format('Filename:', filename)
-		output_buffer += ''.join(['{:<12}'.format(parameter_name for parameter_name in gp.model.get_parameters_names())])
+		output_buffer += ''.join(['{:<12}'.format(parameter_name for parameter_name in model.gp.gp_model.get_parameters_names())])
 
 		output_buffer += '\n'
 
@@ -101,11 +100,11 @@ def main(dataFolder, resultsFolder, model, plot_flags, nwalkers, iterations, bur
 	#------------------------------------------------------------------
 	
 	if plot_flags['plot_gp']:
-		plot.plot_gp(gp, data)
+		plot.plot_gp(model, data)
 	if plot_flags['plot_corner']:
-		plot.plot_corner(gp, samples)
+		plot.plot_corner(model, samples)
 	if plot_flags['plot_psd']:
-		plot.plot_psd(gp, data)
+		plot.plot_psd(model, data)
 	if any(plot_flags.values()):
 		plt.show()
 		plt.close('all')
@@ -117,6 +116,8 @@ def main(dataFolder, resultsFolder, model, plot_flags, nwalkers, iterations, bur
 
 
 
+# Loop to run all Diamonds stars. Need to move it elsewhere
+"""
 def diamondsRunAll():
 	home = '/mnt/c/Users/Filipe/Downloads/work/phd'
 	quarters = ['Q12', 'Q13', 'Q14', 'Q15', 'Q16']
@@ -128,7 +129,4 @@ def diamondsRunAll():
 			resultsFolder = '{}/gptransits/gptransits/results/TEST'.format(home)
 			print('Quarter {}.{} ...\n'.format(quarter, interval))
 			main(dataFolder, resultsFolder)
-
-if __name__ == '__main__':
-	diamondsRunAll()
-	#main()
+"""
