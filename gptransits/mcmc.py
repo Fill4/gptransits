@@ -5,7 +5,7 @@ import logging
 import sys
 
 # def mcmc(data, gp, nwalkers=20, iterations=2000, burnin=500):
-def mcmc(model, nwalkers=20, iterations=2000, burnin=500):
+def run_mcmc(model, nwalkers=20, iterations=2000, burnin=500):
 
 	init_time_mcmc = timeit.default_timer()
 	
@@ -18,12 +18,13 @@ def mcmc(model, nwalkers=20, iterations=2000, burnin=500):
 
 	# Burn-in
 	logging.info('Runnning Burn-in ...')
-	burnin_params, _, _ = sampler.run_mcmc(init_params, burnin, progress=True)
+	progress_bool = not bool(logging.getLogger().getEffectiveLevel()-20)
+	burnin_params, _, _ = sampler.run_mcmc(init_params, burnin, progress=progress_bool)
 	sampler.reset()
 
 	# Main run
 	logging.info('Running MCMC ...')
-	results, _, _ = sampler.run_mcmc(burnin_params, iterations, progress=True)
+	results, _, _ = sampler.run_mcmc(burnin_params, iterations, progress=progress_bool)
 	#logging.info("Acceptance fraction of walkers:")
 	#logging.info(sampler.acceptance_fraction)
 

@@ -10,9 +10,7 @@ from component import *
 from model import *
 
 # Parameters
-plot_flags = {'plot_gp':0, 'plot_corner':0, 'plot_psd':1}
-
-verbose = True
+plot_flags = {'plot_gp':0, 'plot_corner':0, 'plot_psd':0}
 
 burnin = 500
 iterations = 2000
@@ -21,7 +19,7 @@ nwalkers = 20
 #--------------------------------------------------------------
 #--------------------------------------------------------------
 
-# model = GPModel(OscillationBump(), Granulation(prior=[[20,200],[10,100]]), Granulation(prior=[[20,200],[90,200]]), WhiteNoise())
+# gp_model = GPModel(OscillationBump(), Granulation(prior=[[20,200],[10,100]]), Granulation(prior=[[20,200],[90,200]]), WhiteNoise())
 gp_model = GPModel(WhiteNoise(prior=[[1, 200]]))
 mean_model = MeanModel()
 
