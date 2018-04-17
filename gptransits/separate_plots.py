@@ -50,7 +50,7 @@ ax.set_ylabel(r'PSD [ppm$^2$/$\mu$Hz]',fontsize="large")
 include_data = True
 if include_data:
 	# Psd from data
-	freq2, power = LombScargle(time/1e6, flux).autopower(nyquist_factor=1, normalization='psd', samples_per_peak=1)
+	freq2, power = LombScargle(model.time/1e6, model.flux).autopower(nyquist_factor=1, normalization='psd', samples_per_peak=1)
 	ax.loglog(freq2, power/time.size, color='k', alpha=0.3)
 	
 ax.legend(fontsize="large", loc="upper left")

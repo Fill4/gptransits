@@ -1,32 +1,20 @@
 import numpy as np
 import emcee
-import celerite
 import timeit
 import logging
 import sys
 
-# Internal functions
-from backend import log_likelihood
-#from backend import sample_priors, setup_gp, log_likelihood, print_params, scale_params
-#import plotting
-#from components_v2 import *
-
-
-# def mcmc(data, gp, priors, plot_flags, nwalkers=20, iterations=2000, burnin=500):
-def mcmc(data, gp, plot_flags, nwalkers=20, iterations=2000, burnin=500):
+# def mcmc(data, gp, nwalkers=20, iterations=2000, burnin=500):
+def mcmc(model, nwalkers=20, iterations=2000, burnin=500):
 
 	init_time_mcmc = timeit.default_timer()
-
-	# time, flux, error = data
-	time, flux = data
 	
 	# Draw samples from the prior distributions to have initial values for all the walkers
-	init_params = gp.model.prior_sample(nwalkers)
+	init_params = model.gp.gp_model.prior_sample(nwalkers) # Should be replaced with model.prior_sample(nwalkers) after MeanModel is implemented
 	ndim = init_params.shape[1]
 
 	# Instanciate the sampler. Parameters arg is added by samples to log_likelihood function
-	# sampler = emcee.EnsembleSampler(nwalkers, ndim, log_likelihood, args=(time, flux, error, gp))
-	sampler = emcee.EnsembleSampler(nwalkers, ndim, log_likelihood, args=(time, flux, gp))
+	sampler = emcee.EnsembleSampler(nwalkers, ndim, model.log_likelihood)
 
 	# Burn-in
 	logging.info('Runnning Burn-in ...')
