@@ -104,16 +104,16 @@ def run(file, mean_model, gp_model, output, plot_flags, nwalkers, iterations, bu
 		z.close()
 
 	#------------------------------------------------------------------
-	#	PLOT
+	#	PLOTS
 	#------------------------------------------------------------------
 	
-	if plot_flags['plot_gp']:
+	if settings.plots['plot_gp']:
 		plot.plot_gp(model, data)
-	if plot_flags['plot_corner']:
+	if settings.plots['plot_corner']:
 		plot.plot_corner(model, samples)
-	if plot_flags['plot_psd']:
+	if settings.plots['plot_psd']:
 		plot.plot_psd(model, data)
-	if any(plot_flags.values()):
+	if any(settings.plots.values()):
 		plt.show()
 		plt.close('all')
 

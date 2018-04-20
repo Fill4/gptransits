@@ -40,7 +40,7 @@ class Component(object):
 	def get_kernel(self):
 		raise NotImplementedError
 	
-	def get_psd(self, freq):
+	def get_psd(self, freq, npoints):
 		kernel = self.get_kernel()
 		power = kernel.get_psd(2*np.pi*freq)
 		return (self.name, power)
@@ -79,8 +79,8 @@ class Granulation(Component):
 class OscillationBump(Component):
 	name = 'OscillationBump'
 	npars = 3
-	parameter_names = ['A_bump', 'Q', 'nu_max']
-	parameter_latex_names = [r'$A_{bump}$', r'$Q_{bump}$', r'$\nu_{max}$']
+	parameter_names = ['P_g', 'Q', 'nu_max']
+	parameter_latex_names = [r'$P_{g}$', r'$Q_{bump}$', r'$\nu_{max}$']
 	parameter_units = ['ppm', '', r'$\mu$Hz']
 	default_prior = np.array([[10, 250], [1.2, 10], [100, 200]])
 
@@ -111,7 +111,7 @@ class WhiteNoise(Component):
 	parameter_names = ['Jitter']
 	parameter_latex_names = ['Jitter']
 	parameter_units = ['ppm']
-	default_prior = np.array([[1, 100]])
+	default_prior = np.array([[1, 200]])
 
 	def __repr__(self):
 		return '{0}({names[0]}:{values[0]:.3f} {units[0]})'.format(self.name, names=self.parameter_names, values=self.parameter_array, units=self.parameter_units)
@@ -127,3 +127,9 @@ class WhiteNoise(Component):
 		kernel = celerite.terms.JitterTerm(log_sigma=jitter)
 		# kernel = celerite.terms.JitterTerm(log_sigma=np.log(jitter))
 		return kernel
+
+	def get_psd(self, freq, npoints):
+		jitter, = self.parameter_array
+		return (self.name, np.full(freq.size, jitter**2 / npoints))
+		# return (self.name, np.zeros(f req.size))
+		# return (self.name, np.full(freq.size, jitter))

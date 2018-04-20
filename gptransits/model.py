@@ -6,14 +6,22 @@ from component import *
 # Purpose is to abstract the logic of the likelihood calculation when dealing with parameters of both models together
 class Model(object):
 	
-	def __init__(self, mean_model, gp_model, data):
-		try:
-			self.time, self.flux, self.error = data
-		except ValueError:
+	def __init__(self, mean_model, gp_model, data, include_errors=False):
+		# If include errors try to get all data from data array
+		if include_errors:
+			try:
+				self.time, self.flux, self.error = data
+			except ValueError:
+				print("Data needs to have errors to include them")
+		# If not include errors, handle their possible existence in data without making the attribute			
+		else:
 			try:
 				self.time, self.flux = data
 			except ValueError:
-				print("Data needs to have at least time and flux arrays")
+				try:
+					self.time, self.flux, _ = data
+				except ValueError:
+					print("Data needs to have at least time and flux arrays")
 
 		if isinstance(mean_model, MeanModel):
 			self.mean_model = mean_model
@@ -22,7 +30,10 @@ class Model(object):
 
 		if isinstance(gp_model, GPModel):
 			self.gp_model = gp_model
-			self.gp = GP(self.gp_model, self.time)
+			if hasattr(self, 'error'):
+				self.gp = GP(self.gp_model, self.time, self.error)
+			else:
+				self.gp = GP(self.gp_model, self.time)
 		else:
 			raise ValueError("Second argument must be of type GPModel")
 
@@ -33,7 +44,7 @@ class Model(object):
 			return -np.inf
 		self.gp.set_parameters()
 
-		lnlikelihood = self.gp.log_likelihood(self.flux - self.mean_model.compute(params, self.time, self.flux))
+		lnlikelihood = self.gp.log_likelihood(self.flux - self.mean_model.eval(params, self.time, self.flux))
 		
 		return lnprior + lnlikelihood
 
@@ -42,7 +53,7 @@ class Model(object):
 # Parametric model of the data that has a defined functional form
 class MeanModel(object):
 	
-	def compute(self, params, time, flux):
+	def eval(self, params, time, flux):
 		return 0
 
 # Model that contains the components of the GP. Might be joined with GP in the future.
@@ -113,11 +124,11 @@ class GPModel(object):
 		return kernel
 
 	def get_psd(self, time):
-		nyquist = (1 / (2*(time[1]-time[0])))*1e6
+		nyquist = (1 / (2*(time[1]-time[0]))) * 1e6
 		f_sampling = 1 / (27.4*24*3600 / 1e6)
-		freq = np.linspace(0.0, nyquist, (nyquist/f_sampling)+1 )
+		freq = np.linspace(0.0, nyquist, (nyquist/f_sampling)+1)
 
-		psd_dict = [component.get_psd(freq) for component in self.component_array]
+		psd_dict = [component.get_psd(freq, time.size) for component in self.component_array]
 		return [freq, psd_dict]
 
 	def get_kernel_list(self):
@@ -125,13 +136,13 @@ class GPModel(object):
 
 # Class that implements the GP methods of the GPModel and interfaces with celerite methods
 class GP(object):
-	def __init__(self, gp_model, time):
+	def __init__(self, gp_model, time, error=1.123e-12): # yerr same as celerite
 		if isinstance(gp_model, GPModel):
 			self.gp_model = gp_model
 		else:
 			raise ValueError("model arg must be of type GPModel")
 		self.gp = celerite.GP(self.gp_model.get_kernel())
-		self.gp.compute(time/1e6)
+		self.gp.compute(time/1e6, yerr=error)
 
 	def set_parameters(self):
 		celerite_params = self.gp_model.get_parameters_celerite()
