@@ -52,11 +52,11 @@ def plot_psd(model, data, include_data=True):
 
 		ax3.loglog(freq, power, ls=ls_dict[name], color='b', alpha=alpha_dict[name], label=label_dict[name])
 	
-	ax3.loglog(freq, nobump_power, ls='-', color='r', label='Model without gaussian')
-	ax3.loglog(freq, full_power, ls='--', color='#7CFC00', label='Full Model')
+	ax3.loglog(freq, nobump_power, ls='--', color='r', label='Model without gaussian')
+	ax3.loglog(freq, full_power, ls='-', color='k', label='Full Model')
 
-	ax3.set_xlim([5, 300])
-	ax3.set_ylim([0.1, 4000])
+	ax3.set_xlim([1, 300])
+	ax3.set_ylim([0.01, 4000])
 	
 	# ax3.set_title('KIC012008916')
 	ax3.set_xlabel(r'Frequency [$\mu$Hz]',fontsize="large")

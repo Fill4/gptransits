@@ -139,8 +139,15 @@ def plotDiamondsGPComparisonFull():
 
 		# gpData[:,-2] = np.log(gpData[:,-2])
 		# gpData[:,-1] = np.log(gpData[:,-1])
-		# gpData[:,-2] = gpData[:,-2] / 10
-		# gpData[:,-1] = gpData[:,-1] / 10
+		gpData[:,-2] = gpData[:,-2]**2 / 1300
+		gpData[:,-1] = gpData[:,-1] / 10
+
+		if model == 1:
+			S0_gran = diamondsData[:,0] - gpData[:,0]
+			S0_bump = diamondsData[:,4] - gpData[:,4]
+			print(np.median(S0_gran))
+			print(np.median(S0_bump))
+			print(np.median(diamondsData[:,-2]-gpData[:,-2]))
 
 		for ax in axs.reshape(-1): #axs.reshape(-1, order='F') to get columns first
 			
