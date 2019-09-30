@@ -277,15 +277,14 @@ def psd_plot(gp_model, mean_model, params, time, flux, include_data=True, parsev
 		ax.loglog(freq, psd_vector[i], ls="--", alpha=0.8, lw=2, label=names[i])
 
 	# ax.loglog(freq, nobump_power, ls='--', color='r', label='Model without gaussian', lw=2, alpha=0.8)
-	ax.loglog(freq, full_psd, ls="-", color='k', label='Power Spectrum', lw=2)
+	ax.loglog(freq, full_psd, ls="-", color='r', label='Power Spectrum', lw=3)
 	
-	# ax.set_title("Power Spectrum", fontsize=font)
-	ax.set_xlabel(r'Frequency ($\mu$Hz)', fontsize=font)
-	ax.set_ylabel(r'PSD (ppm$^2$/$\mu$Hz)', fontsize=font)
-	ax.tick_params(labelsize=font)
-	
-	if include_data:
+	# Get nyquist frequency and plot its line
+	cadence = (time[1] - time[0]) * days_to_microsec
+	nyquist = 1 / (2 * cadence)
+	ax.axvline(nyquist, ls="--", c="k", lw=1)
 
+	if include_data:
 		# Psd from data
 		if mean_model is not None:
 			mean_model.init_model(time, time[1]-time[0], 1)
@@ -294,23 +293,28 @@ def psd_plot(gp_model, mean_model, params, time, flux, include_data=True, parsev
 		else:
 			res_flux = flux
 
-		freq2, power = LombScargle(time*days_to_microsec, res_flux).autopower(nyquist_factor=1, normalization='psd', samples_per_peak=1)
+		freq2, power = LombScargle(time*days_to_microsec, res_flux).autopower(nyquist_factor=1.5, normalization='psd', samples_per_peak=1)
 
 		# Parseval Normalization (Enrico)
 		if parseval_norm:
 			resolution = freq2[1]-freq2[0]
 			variance = np.var(flux)
 			power = (power * variance / sum(power)) / resolution
-
 		# Celerite Normalization
 		else:
-			power = power / model.time.size
+			power = power / time.size
 
 		ax.loglog(freq2, power, color='k', alpha=0.3, lw=1, label='Data')
-		ax.loglog(freq2, convolve(power, Box1DKernel(10)), color='k', alpha=0.5, lw=2, label='Smoothed Data')
+		ax.loglog(freq2, convolve(power, Box1DKernel(20)), color='k', alpha=0.5, lw=2, label='Smooth Data')
 	
-	ax.set_xlim([1,300])
-	ax.set_ylim([1, 1e4])
+	# SETTINGS
+	# ax.set_title("Power Spectrum", fontsize=font)
+	ax.set_xlabel(r'Frequency ($\mu$Hz)', fontsize=font)
+	ax.set_ylabel(r'PSD (ppm$^2$/$\mu$Hz)', fontsize=font)
+	ax.tick_params(labelsize=font)
+
+	ax.set_xlim([1,nyquist*1.3])
+	ax.set_ylim([1, ax.get_ylim()[1]]) # Define lower bound and use auto upper bound
 	ax.legend(loc="lower left", fontsize=font)
 
 	return fig
