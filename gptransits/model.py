@@ -38,6 +38,7 @@ class Model():
 
     lc_file = None
     config_file = None
+    working_dir = None
     config = None
     settings = None
 
@@ -60,9 +61,13 @@ class Model():
     posterior = None
 
     @classmethod
-    def __init__(cls, lc_file, config_file):
+    def __init__(cls, lc_file, config_file, working_dir=None):
         cls.lc_file = Path(lc_file)
         cls.config_file = Path(config_file)
+        if working_dir is None:
+            cls.working_dir = Path(".")
+        else:
+            cls.working_dir = Path(working_dir)
 
         # Get config from file
         try:
@@ -184,23 +189,23 @@ class Model():
         # Ability to restart progress in the middle of run_mcmc
         # If there is a backend and we use it, set_params is None so that run_mcmc uses the ones from the backend
         if cls.settings.save:
-            if not (cls.lc_file.parent / "output").is_dir():
-                Path.mkdir(cls.lc_file.parent / "output")
-            filename = cls.lc_file.parent / "output" / "chain.hdf5"
-
+            output_dir = cls.working_dir / "output"
+            if not output_dir.is_dir():
+                output_dir.mkdir()
+            filename = output_dir / "chain.hdf5"
+            backend = emcee.backends.HDFBackend(str(filename), name="gptransits")
+            
             # If we have a backend file to fetch the sampler from
             if filename.is_file():
                 # If we want to reset it, just clear the sampler and get init sample from prior
                 if reset:
                     logging.info("Reseting the backend sampler")
-                    filename.unlink() # Remove the file. Hack because reset is not working
                     # backend.reset(nwalkers, ndim) # This line is not working as intended
-                    backend = emcee.backends.HDFBackend(str(filename), name="gptransits")
+                    filename.unlink() # Remove the file. Hack because reset is not working
                     set_params = True
                 # Else, init the backend and check if we have more iterations in the sampler than the desired ones
                 else:
-                    backend = emcee.backends.HDFBackend(str(filename), name="gptransits")
-                    # If we have exit from the code
+                    # If we have, stop the code
                     if backend.iteration >= nsteps:
                         logging.info("Number of iterations is equal or lower than the one found in the backend")
                         return
@@ -254,14 +259,10 @@ class Model():
 
         # Save data
         if cls.settings.save:
-            # If there is no output folder, create it
-            if not (cls.lc_file.parent / "output").is_dir():
-                Path.mkdir(cls.lc_file.parent / "output")
-
             logging.info(f"Saving chain and lnprobability")
-            with open(cls.lc_file.parent / "output" / "chain.pk", "wb") as f:
+            with open(output_dir / "chain.pk", "wb") as f:
                 pickle.dump(sampler.chain, f, protocol=-1)
-            with open(cls.lc_file.parent / "output" / "lnprobability.pk", "wb") as f:
+            with open(output_dir / "lnprobability.pk", "wb") as f:
                 pickle.dump(sampler.lnprobability, f, protocol=-1)
 
 
@@ -329,21 +330,21 @@ class Model():
         
         # Read in all data
         if cls.chain is not None and cls.posterior is not None:
-            logging.info(f"Using data from instance")
+            logging.info(f"Using chain from current model")
             chain = cls.chain.copy()
             posterior = cls.posterior.copy()
         else:
-            output_folder = cls.lc_file.parent / "output"
-            logging.info(f"Fetching data from: {output_folder}")
-            if not output_folder.is_dir():
-                logging.error(f"No directory with target data to analyse: {cls.lc_file.parent / 'output'}")
+            output_dir = working_dir / "output"
+            logging.info(f"Fetching data from: {output_dir}")
+            if not output_dir.is_dir():
+                logging.error(f"No directory with target data to analyse: {output_dir}")
                 sys.exit(5)
 
-            logging.info(f"Fetching: {output_folder}/chain.pk")
-            with open(f"{output_folder}/chain.pk", "rb") as f:
+            logging.info(f"Fetching: {output_dir}/chain.pk")
+            with open(f"{output_dir}/chain.pk", "rb") as f:
                 chain = pickle.load(f)
-            logging.info(f"Fetching: {output_folder}/lnprobability.pk")
-            with open(f"{output_folder}/lnprobability.pk", "rb") as p:
+            logging.info(f"Fetching: {output_dir}/lnprobability.pk")
+            with open(f"{output_dir}/lnprobability.pk", "rb") as p:
                 posterior = pickle.load(p)
 
         if plot:
