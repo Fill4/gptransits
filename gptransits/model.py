@@ -174,7 +174,7 @@ class Model():
     #     signal.signal(signal.SIGINT, sig_int)
             
     @classmethod
-    def run(cls):
+    def run(cls, reset=False, num_threads=None):
         # -------------------- MCMC ----------------------------
         # MCMC settings
         ndim = cls.gp_model_ndim + cls.mean_model_ndim
@@ -182,29 +182,38 @@ class Model():
         nsteps = cls.settings.num_steps
 
         # Ability to restart progress in the middle of run_mcmc
-        # If there is a backend and we use it, set init_params to None so that run_mcmc uses the ones from the backend
+        # If there is a backend and we use it, set_params is None so that run_mcmc uses the ones from the backend
         if cls.settings.save:
             if not (cls.lc_file.parent / "output").is_dir():
                 Path.mkdir(cls.lc_file.parent / "output")
             filename = cls.lc_file.parent / "output" / "chain.hdf5"
-            backend = emcee.backends.HDFBackend(str(filename))
 
+            # If we have a backend file to fetch the sampler from
             if filename.is_file():
-                if backend.iteration >= nsteps:
-                    logging.info("Number of iterations is equal or lower than the one found in the backend")
-                    return
-                    # sys.exit(4)
-                nsteps = nsteps - backend.iteration
-                init_params = None
-                set_params = False
+                # If we want to reset it, just clear the sampler and get init sample from prior
+                if reset:
+                    logging.info("Reseting the backend sampler")
+                    filename.unlink() # Remove the file. Hack because reset is not working
+                    # backend.reset(nwalkers, ndim) # This line is not working as intended
+                    backend = emcee.backends.HDFBackend(str(filename), name="gptransits")
+                    set_params = True
+                # Else, init the backend and check if we have more iterations in the sampler than the desired ones
+                else:
+                    backend = emcee.backends.HDFBackend(str(filename), name="gptransits")
+                    # If we have exit from the code
+                    if backend.iteration >= nsteps:
+                        logging.info("Number of iterations is equal or lower than the one found in the backend")
+                        return
+                    # Otherwise, just calculate the remainining number of steps remaining and continue from there
+                    else:
+                        nsteps = nsteps - backend.iteration
+                        set_params = False
+            # If we have no backend file yet, we need to sample the initial params from the prior
             else:
                 set_params = True
-
-            # TODO: Add flag/setting to reset backend. Will need to init priors in that case
-            # backend.reset(nwalkers, ndim)
         # Otherwise set backend to None and just init the params from the prior
         else:
-            backend=None
+            backend = None
             set_params = True
 
         # If the initial params are not taken from the backend init them from the prior
@@ -218,18 +227,22 @@ class Model():
                 init_params = cls.mean_model.sample_prior(num=nwalkers)
             elif cls.gp_model is not None:
                 init_params = cls.gp_model.sample_prior(num=nwalkers)
+        # Else, set them to None
+        else:
+            init_params = None
 
         # Multiprocessing settings and sampler initialization
-        # cls.settings.num_threads = 6 # Just a small hack before things are changed. TODO: Need global override option
-        if cls.settings.num_threads != 1:
+        if num_threads is None:
+            num_threads = cls.settings.num_threads
+        if num_threads != 1:
             # pool = Pool(cls.settings.num_threads, cls.worker_init)
-            pool = Pool(cls.settings.num_threads)
+            pool = Pool(num_threads)
             sampler = emcee.EnsembleSampler(nwalkers, ndim, cls.lnlike_func, pool=pool, backend=backend)
         else:
             sampler = emcee.EnsembleSampler(nwalkers, ndim, cls.lnlike_func, backend=backend)
 
         # Run mcmc
-        logging.info(f"Running MCMC on {cls.settings.num_threads} processes for {nsteps} iterations...")
+        logging.info(f"Running MCMC on {num_threads} processes for {nsteps} iterations...")
         try:
             sampler.run_mcmc(init_params, nsteps, progress=True)
         except KeyboardInterrupt:
@@ -326,9 +339,10 @@ class Model():
                 logging.error(f"No directory with target data to analyse: {cls.lc_file.parent / 'output'}")
                 sys.exit(5)
 
-            logging.info(f"{output_folder}/chain.pk")
+            logging.info(f"Fetching: {output_folder}/chain.pk")
             with open(f"{output_folder}/chain.pk", "rb") as f:
                 chain = pickle.load(f)
+            logging.info(f"Fetching: {output_folder}/lnprobability.pk")
             with open(f"{output_folder}/lnprobability.pk", "rb") as p:
                 posterior = pickle.load(p)
 
@@ -441,9 +455,9 @@ class Model():
             # lc_zoom_fig.savefig(f"{figure_folder}/lc_zoom_plot.pdf")
 
             # Plot the lightcurve with the GP distribution and/or the transit + zoom in - same plot
-            logging.info(f"Plotting lightcurve with zoom ...")
-            lc_double_fig = lc_double_plot(cls.gp_model, cls.mean_model, params, cls.time, cls.flux, cls.flux_err, offset=0.06, oversample=10)
-            lc_double_fig.savefig(f"{figure_folder}/lc_double_plot.pdf")
+            #logging.info(f"Plotting lightcurve with zoom ...")
+            #lc_double_fig = lc_double_plot(cls.gp_model, cls.mean_model, params, cls.time, cls.flux, cls.flux_err, offset=0.06, oversample=10)
+            #lc_double_fig.savefig(f"{figure_folder}/lc_double_plot.pdf")
             # gp_double_fig.savefig(f"{figure_folder}/gp_double_plot.png", dpi=800)
 
             if cls.gp_model is not None:
