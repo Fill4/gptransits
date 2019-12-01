@@ -4,22 +4,19 @@ Fits a transit model together with a Gaussian Process model created by celerite 
 """
 
 import sys, os
-import copy
-import time
-# import signal
-# import psutil
 import pickle
-from pathlib import Path
+import time
 import logging
-import argparse
+from pathlib import Path
 import importlib
+from multiprocessing.pool import Pool
+import signal
 
 import numpy as np
 import matplotlib.pyplot as plt
 import emcee
 import celerite
-from multiprocessing.pool import Pool
-
+import lightkurve as lk
 
 # Model imports
 from .transit import BatmanModel#, PysyzygyModel
@@ -33,109 +30,139 @@ from .plot import *
 
 __all__ = ["Model"]
 
-class Model():
-    # parent_id = os.getpid()
+log = logging.getLogger("my_logger")
 
-    lc_file = None
-    config_file = None
-    working_dir = None
-    config = None
+class Model():
+    # Directories, configuration dict and settings struct # TODO: Move to general struct possibly
+    workdir = None
+    outdir = None
+    figdir = None
+    cfg = None
     settings = None
 
-    # Add these variables as class variables to make them global for multithreading.Pool
-    time = None
-    flux = None
-    flux_err = None
+    # LightCurve object from lightkurve
+    lc = None
 
+    # Static object handles for the models. For multiprocessing
     mean_model = None
-    mean_model_ndim = 0
-    has_mean_model = False
-
     gp_model = None
-    gp_model_ndim = 0
     gp = None
-
+    # Static handle to Likelihood function defined according to models defined
     lnlike_func = None
 
+    # MCMC static settings
+    mean_model_ndim = 0
+    gp_model_ndim = 0
+    ndim = 0
+
+    # Sampler data
+    backend = None
     chain = None
-    posterior = None
+    log_prob = None
+
+    # Analysis
+    stats = None
+    stats_flag = False
 
     @classmethod
-    def __init__(cls, lc_file, config_file, working_dir=None):
-        cls.lc_file = Path(lc_file)
-        cls.config_file = Path(config_file)
-        if working_dir is None:
-            cls.working_dir = Path(".")
+    def __init__(cls, lc, cfg=None, workdir=None, quiet=False, logfile=None):
+        # Setp the main logger. Clear the logger handlers list as this is a static class and we would accumulate
+        log.handlers = []
+        if quiet:
+            loglevel = logging.WARN
         else:
-            cls.working_dir = Path(working_dir)
+            loglevel = logging.INFO
+        log.setLevel(loglevel)
+        if logfile is None:
+            sh = logging.StreamHandler()
+            sh.setLevel(loglevel)
+            formatter = logging.Formatter('[%(levelname)s] %(message)s')
+            sh.setFormatter(formatter)
+            log.addHandler(sh)
+        else:
+            fh = logging.FileHandler("log.txt", filemode="w")
+            fh.setLevel(loglevel)
+            formatter = logging.Formatter('[%(levelname)s] %(message)s')
+            fh.setFormatter(formatter)
+            log.addHandler(fh)
 
-        # Get config from file
+        # Setup workdir workdir
+        if workdir is None:
+            cls.workdir = Path(".")
+        else:
+            cls.workdir = Path(workdir)
+        log.info(f'Working in directory: {cls.workdir.resolve()}')
+        cls.outdir = cls.workdir / "output"
+        cls.figdir = cls.workdir / "figures"
+
+        # Define config file path and try to get config from file
+        if cfg is None:
+            cfg_file = cls.workdir / "config.py"
+        else:
+            cfg_file = Path(cfg)
         try:
-            spec = importlib.util.spec_from_file_location("config", cls.config_file)
-            cls.config = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(cls.config)
+            spec = importlib.util.spec_from_file_location("config", cfg_file)
+            cls.cfg = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(cls.cfg)
         except Exception:
-            logging.exception(f"Couldn't import {cls.config_file.stem}")
+            log.exception(f"Couldn't import {cfg_file.stem}")
             sys.exit()
-        sys.modules["config"] = cls.config
+        sys.modules["cfg"] = cls.cfg
 
-        if hasattr(cls.config, "settings"):
-            cls.settings = cls.config.settings
+        # Define settings either from config file or default
+        if hasattr(cls.cfg, "settings"):
+            cls.settings = cls.cfg.settings
         else:
             cls.settings = Settings()
-        
-        # Setup logging according to args
-        if cls.settings.log_to_file:
-            logging.basicConfig(format='%(levelname)s: %(message)s', filename="log.txt", filemode="w", level=cls.settings.log_level)
-        else:
-            logging.basicConfig(format='%(levelname)s: %(message)s', level=cls.settings.log_level)
 
         # Set random state early to control the initial random sample and also emcee iterations
         np.random.seed(cls.settings.seed)
 
-        cls.load_data()
+        # If the lc passed was a string, read it into a lk.LightCurve object
+        if isinstance(lc, str):
+            cls.load_lc_from_file(Path(lc))
+        elif isinstance(lc, lk.LightCurve):
+            cls.lc = lc
+
+        # Setup the gp and transit models from the configuration files
         cls.setup_models()
+        cls.load_data()
+        cls.stats_flag = False # Not sure how the static class handles multiple creation
 
     @classmethod
-    def load_data(cls):
+    def load_lc_from_file(cls, lc_file):
         # Read data from file
-        logging.info(f'Reading data from: {cls.lc_file.name}')
-        logging.info(f'Working in directory: {cls.lc_file.parent.resolve()}')
+        log.info(f'Reading lightcurve from: {lc_file.name}')
         try:
-            time, flux, flux_err = np.loadtxt(cls.lc_file, unpack=True)
+            time, flux, flux_err = np.loadtxt(lc_file, unpack=True)
         except ValueError:
+            if cls.settings.include_errors:
+                log.error(f"Need a flux_err column when include_errors is True")
+                sys.exit()
             try:
-                time, flux = np.loadtxt(cls.lc_file, unpack=True)
+                time, flux = np.loadtxt(lc_file, unpack=True)
+                flux_err = None
             except ValueError:
-                logging.error(f"Error: Couldn't load data from the lc_file: {cls.lc_file}")
-                sys.exit(1)
-        if cls.settings.include_errors:
-            if flux_err is None:
-                logging.error(f"Error: Need a flux_err column when include_errors is True")
-                sys.exit(1)
+                log.error(f"Couldn't load data from the lc_file: {lc_file}")
+                sys.exit()
+                
 
-        # Convert time to days and flux and err to ppm (if needed). Make copy to separate memory of arrays for C
-        cls.time = time.copy()                    # keep days
-        # cls.time = time.copy() / (24.*3600.)        # seconds to days
-        # cls.flux = flux.copy()                      # keep ppm
-        cls.flux = (flux.copy() - 1.0) * 1e6      # frac to ppm
-        if cls.settings.include_errors:
-            # cls.flux_err = flux_err.copy()          # keep ppm
-            cls.flux_err = flux_err.copy() * 1e6  # frac to ppm
+        # TODO: Needs to correct for the format of data being processed
+        cls.lc = lk.LightCurve(time = np.copy(time), flux = np.copy(flux) * 1e6, flux_err = flux_err)
+        cls.lc.meta["lc_file"] = lc_file
 
     @classmethod
     def setup_models(cls):
-        # Setup a transit model if there is configs in file ,otherwise setup empty params
-        if hasattr(cls.config, "transit"):
-            cls.mean_model = BatmanModel(cls.config.transit["name"], cls.config.transit["params"])
-            # cls.mean_model = PysyzygyModel(cls.config.transit["name"], cls.config.transit["params"])
-            cls.mean_model.init_model(cls.time, cls.time[1]-cls.time[0], 6)
-            cls.mean_model_ndim = cls.mean_model.mask.sum()
-            cls.has_mean_model = True
 
-        if hasattr(cls.config, "gp"):
-            # Setup gp model. Create a setup_gp_model() function that reads in an external config file
-            cls.gp_model = GPModel(cls.config.gp)
+        # Setup a transit model if there is config in file. # TODO: Add other models
+        if hasattr(cls.cfg, "transit"):
+            cls.mean_model = BatmanModel(cls.cfg.transit["name"], cls.cfg.transit["params"])
+            cls.mean_model.init_model(cls.lc.time, cls.lc.time[1]-cls.lc.time[0], 6)
+            cls.mean_model_ndim = cls.mean_model.mask.sum()
+
+        # Setup gp model according to the config file
+        if hasattr(cls.cfg, "gp"):
+            cls.gp_model = GPModel(cls.cfg.gp)
             kernel = cls.gp_model.get_kernel(cls.gp_model.sample_prior()[0])
             cls.gp_model_ndim = kernel.get_parameter_vector().size
 
@@ -143,85 +170,78 @@ class Model():
             cls.gp = celerite.GP(kernel)
             days_to_microsec = (24*3600) / 1e6
             if cls.settings.include_errors:
-                cls.gp.compute(cls.time*days_to_microsec, yerr=cls.flux_err)
+                cls.gp.compute(cls.lc.time*days_to_microsec, yerr=cls.lc.flux_err)
             else:
-                cls.gp.compute(cls.time*days_to_microsec)
+                cls.gp.compute(cls.lc.time*days_to_microsec)
 
-
+        # Define the log_likelihood (cost) function according to the data we have. Works as a function pointer
         if cls.mean_model is not None and cls.gp_model is not None:
             cls.lnlike_func = cls.full_lnlike
-            logging.info("Model with GP and transit")
+            log.info("Model with GP and transit")
         elif cls.gp_model is not None:
             cls.lnlike_func = cls.gp_lnlike
-            logging.info("Model with GP")
+            log.info("Model with GP")
         elif cls.mean_model is not None:
             cls.lnlike_func = cls.transit_lnlike
-            logging.info("Model with transit")
+            log.info("Model with transit")
         else:
-            logging.error("Need to define at least a gp or transit model")
+            log.error("Need to define at least a gp or transit model")
             sys.exit()
     
-    # TODO: WIP to catch KeyboardInterrupt in emcee run. Requires psutil and signal
-    # @classmethod
-    # def worker_init(cls):
-    #     def sig_int(signal_num, frame):
-    #         print('signal: %s' % signal_num)
-    #         parent = psutil.Process(cls.parent_id)
-    #         for child in parent.children():
-    #             if child.pid != os.getpid():
-    #                 print("killing child: %s" % child.pid)
-    #                 child.kill()
-    #         # TODO: Parent is killing ipython.
-    #         print("killing parent: %s" % cls.parent_id)
-    #         parent.kill()
-    #         print("suicide: %s" % os.getpid())
-    #         psutil.Process(os.getpid()).kill()
-    #     signal.signal(signal.SIGINT, sig_int)
-            
     @classmethod
-    def run(cls, reset=False, num_threads=None):
-        # -------------------- MCMC ----------------------------
-        # MCMC settings
-        ndim = cls.gp_model_ndim + cls.mean_model_ndim
-        nwalkers =  ndim * 4
-        nsteps = cls.settings.num_steps
-
-        # Ability to restart progress in the middle of run_mcmc
-        # If there is a backend and we use it, set_params is None so that run_mcmc uses the ones from the backend
+    def load_data(cls):
+        # Define backend if we want to save progress and load the data there
         if cls.settings.save:
-            output_dir = cls.working_dir / "output"
-            if not output_dir.is_dir():
-                output_dir.mkdir()
-            filename = output_dir / "chain.hdf5"
-            backend = emcee.backends.HDFBackend(str(filename), name="gptransits")
-            
+            if not cls.outdir.is_dir():
+                cls.outdir.mkdir()
+            filename = cls.outdir / "chain.hdf5"
+            cls.backend = emcee.backends.HDFBackend(str(filename), name="gptransits")
+
+            # TODO: Probably doesnt work right now because of chain dimensions return in backend
+            # TODO: Update to emcee latest version and account for this change
+            # if filename.is_dir():
+            #     cls.chain = cls.backend.get_chain()
+            #     cls.log_prob = cls.backend.get_log_prob()
+
+        # Otherwise set backend to None
+        else:
+            cls.backend = None
+
+    @classmethod
+    def init_worker(cls):
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+    @classmethod
+    def run(cls, reset=False, num_threads=1):
+        # -------------------- MCMC ----------------------------
+        cls.ndim = cls.mean_model_ndim + cls.gp_model_ndim
+        nwalkers =  cls.ndim * 4
+        nsteps = cls.settings.num_steps
+        # By default we define the initial params from the priors
+        set_params = True
+        # Check backend status and iterations and compare to config. Reset if flag is true
+        if cls.backend is not None:
             # If we have a backend file to fetch the sampler from
+            filename = Path(cls.backend.filename)
             if filename.is_file():
                 # If we want to reset it, just clear the sampler and get init sample from prior
                 if reset:
-                    logging.info("Reseting the backend sampler")
-                    # backend.reset(nwalkers, ndim) # This line is not working as intended
-                    filename.unlink() # Remove the file. Hack because reset is not working
-                    set_params = True
+                    log.info("Resetting the backend sampler")
+                    # backend.reset(nwalkers, ndim) # TODO: This line is not working as intended
+                    filename.unlink() # TODO: Remove the file. Hack because reset is not working
                 # Else, init the backend and check if we have more iterations in the sampler than the desired ones
                 else:
                     # If we have, stop the code
-                    if backend.iteration >= nsteps:
-                        logging.info("Number of iterations is equal or lower than the one found in the backend")
+                    if cls.backend.iteration >= nsteps:
+                        log.warn("Skipping run. Backend number of iterations greater than settings")
                         return
-                    # Otherwise, just calculate the remainining number of steps remaining and continue from there
+                    # Otherwise, calculate the remaining steps and continue from there
                     else:
-                        nsteps = nsteps - backend.iteration
+                        nsteps = nsteps - cls.backend.iteration
                         set_params = False
-            # If we have no backend file yet, we need to sample the initial params from the prior
-            else:
-                set_params = True
-        # Otherwise set backend to None and just init the params from the prior
-        else:
-            backend = None
-            set_params = True
-
+            
         # If the initial params are not taken from the backend init them from the prior
+        init_params = None
         if set_params:
             # Sample priors to get initial values for all walkers
             if cls.gp_model is not None and cls.mean_model is not None:
@@ -232,39 +252,32 @@ class Model():
                 init_params = cls.mean_model.sample_prior(num=nwalkers)
             elif cls.gp_model is not None:
                 init_params = cls.gp_model.sample_prior(num=nwalkers)
-        # Else, set them to None
-        else:
-            init_params = None
 
-        # Multiprocessing settings and sampler initialization
-        if num_threads is None:
-            num_threads = cls.settings.num_threads
-        if num_threads != 1:
-            # pool = Pool(cls.settings.num_threads, cls.worker_init)
-            pool = Pool(num_threads)
-            sampler = emcee.EnsembleSampler(nwalkers, ndim, cls.lnlike_func, pool=pool, backend=backend)
-        else:
-            sampler = emcee.EnsembleSampler(nwalkers, ndim, cls.lnlike_func, backend=backend)
+        # Single or Multiprocessing always uses pool as the init_worker can handle the system interrupts
+        pool = Pool(num_threads, cls.init_worker)
+        sampler = emcee.EnsembleSampler(nwalkers, cls.ndim, cls.lnlike_func, pool=pool, backend=cls.backend)
 
         # Run mcmc
-        logging.info(f"Running MCMC on {num_threads} processes for {nsteps} iterations...")
+        log.info(f"Running MCMC on {num_threads} processes for {nsteps} iterations")
         try:
             sampler.run_mcmc(init_params, nsteps, progress=True)
         except KeyboardInterrupt:
-            logging.error(f"KeyboardInterrupt stopping emcee")
+            log.warn(f"Emcee was stopped by user input")
+            pool.terminate()
+            pool.join()
             sys.exit()
 
-        cls.chain = sampler.chain.copy()
-        cls.posterior = sampler.lnprobability.copy()
+        # TODO: get_chain is the new method but it has different dims
+        cls.chain = sampler.chain.copy() 
+        cls.log_prob = sampler.get_log_prob().copy()
 
-        # Save data
+        # Save data # TODO: Need to update lnprobability name and then update filenames
         if cls.settings.save:
-            logging.info(f"Saving chain and lnprobability")
-            with open(output_dir / "chain.pk", "wb") as f:
+            log.info(f"Saving chain and log_prob")
+            with open(cls.outdir / "chain.pk", "wb") as f:
                 pickle.dump(sampler.chain, f, protocol=-1)
-            with open(output_dir / "lnprobability.pk", "wb") as f:
-                pickle.dump(sampler.lnprobability, f, protocol=-1)
-
+            with open(cls.outdir / "lnprobability.pk", "wb") as f:
+                pickle.dump(sampler.get_log_prob(), f, protocol=-1)
 
     # -------------------------------------------------------------------------------------------
     # LIKELIHOOD FUNCTIONS
@@ -281,8 +294,8 @@ class Model():
         gp_params = cls.gp_model.get_parameters_celerite(params[:cls.gp_model_ndim])
         cls.gp.set_parameter_vector(gp_params)
 
-        mean = cls.mean_model.get_value(params[cls.gp_model_ndim:], cls.time)
-        lnlikelihood = cls.gp.log_likelihood(cls.flux - mean)
+        mean = cls.mean_model.get_value(params[cls.gp_model_ndim:], cls.lc.time)
+        lnlikelihood = cls.gp.log_likelihood(cls.lc.flux - mean)
             
         return mean_lnprior + gp_lnprior + lnlikelihood
 
@@ -295,7 +308,7 @@ class Model():
         # Convert params to celerite model and update gp object
         cls.gp.set_parameter_vector(cls.gp_model.get_parameters_celerite(params))
 
-        lnlikelihood = cls.gp.log_likelihood(cls.flux)
+        lnlikelihood = cls.gp.log_likelihood(cls.lc.flux)
             
         return gp_lnprior + lnlikelihood
 
@@ -305,15 +318,15 @@ class Model():
         if not np.isfinite(mean_lnprior):
             return -np.inf
     
-        residuals = cls.flux - cls.mean_model.get_value(params, cls.time)
+        residuals = cls.lc.flux - cls.mean_model.get_value(params, cls.lc.time)
         # TODO: Needs white noise component added here maybe
-        if cls.flux_err is not None:
-            lnlikelihood = np.sum(-0.5 * (residuals**2 / cls.flux_err**2))
+        if cls.lc.flux_err is not None:
+            lnlikelihood = np.sum(-0.5 * (residuals**2 / cls.lc.flux_err**2))
         else:
             lnlikelihood = np.sum(-0.5 * residuals**2)
         
         # if lnlikelihood > -18.5:
-        # logging.info(f"lnlikelihood: {lnlikelihood}")
+        # log.info(f"lnlikelihood: {lnlikelihood}")
 
         return mean_lnprior + lnlikelihood
 
@@ -322,36 +335,27 @@ class Model():
     # ANALYSIS
     # -------------------------------------------------------------------------------------------
     @classmethod
-    def analysis(cls, plot=True, fout=None):
-
-        start_time = time.time()
-        # Setup folder names and load chain and posterior from the pickle files
-        logging.info(f"Running analysis on: {cls.lc_file.stem} ...")
+    def statistics(cls, fout=None):
+        # Setup folder names and load chain and log_prob from the pickle files
+        log.info(f"Running full analysis on: {cls.lc.meta['lc_file'].stem}")
         
         # Read in all data
-        if cls.chain is not None and cls.posterior is not None:
-            logging.info(f"Using chain from current model")
+        if cls.chain is not None and cls.log_prob is not None:
+            log.info(f"Using data from current model")
             chain = cls.chain.copy()
-            posterior = cls.posterior.copy()
+            log_prob = cls.log_prob.copy()
         else:
-            output_dir = working_dir / "output"
-            logging.info(f"Fetching data from: {output_dir}")
-            if not output_dir.is_dir():
-                logging.error(f"No directory with target data to analyse: {output_dir}")
-                sys.exit(5)
+            log.info(f"Fetching data from output directory: {cls.outdir}")
+            if not cls.outdir.is_dir():
+                log.error(f"No directory with target data to analyse: {cls.outdir}")
+                sys.exit()
 
-            logging.info(f"Fetching: {output_dir}/chain.pk")
-            with open(f"{output_dir}/chain.pk", "rb") as f:
+            log.info(f"Fetching: {cls.outdir}/chain.pk")
+            with open(f"{cls.outdir}/chain.pk", "rb") as f:
                 chain = pickle.load(f)
-            logging.info(f"Fetching: {output_dir}/lnprobability.pk")
-            with open(f"{output_dir}/lnprobability.pk", "rb") as p:
-                posterior = pickle.load(p)
-
-        if plot:
-            figure_folder = cls.lc_file.parent / "figures"
-            if not figure_folder.is_dir():
-                figure_folder.mkdir()
-
+            log.info(f"Fetching: {cls.outdir}/lnprobability.pk")
+            with open(f"{cls.outdir}/lnprobability.pk", "rb") as p:
+                log_prob = pickle.load(p)
 
         if cls.gp_model is not None and cls.mean_model is not None:
             gp_names = cls.gp_model.get_parameters_latex()
@@ -361,11 +365,11 @@ class Model():
             names = cls.mean_model.get_parameters_latex()
         elif cls.gp_model is not None:
             names = cls.gp_model.get_parameters_latex()
-
-        output = f"{cls.lc_file.stem:>13s}"
+        
+        output_dict = {"name": cls.lc.meta["lc_file"].stem}
 
         # Run burn-in diagnostics (Geweke)
-        logging.info(f"Calculating Geweke diagnostic ...")
+        log.info(f"Calculating Geweke diagnostic")
         starts, zscores = geweke(chain)
         chains_over = np.max(zscores, axis=2) > 2
         num_chains_over = np.sum(chains_over, axis=1)
@@ -381,43 +385,42 @@ class Model():
         num_walkers = np.sum(walkers_mask)
 
         reduced_chain = chain[walkers_mask,starts[start_index]:,:]
-        reduced_posterior = posterior[starts[start_index]:,walkers_mask]
+        reduced_log_prob = log_prob[starts[start_index]:,walkers_mask]
         
-        output = f"{output} {str(geweke_flag):>7s} {num_walkers:>4d} {starts[start_index]/chain.shape[1]:>5.2f}"
+        output_dict["geweke_flag"] = geweke_flag
+        output_dict["num_walkers"] = num_walkers
+        output_dict["percentage_walkers"] = starts[start_index]/chain.shape[1]
 
-        # Cut chains with lower posterior
-        logging.info(f"Removing lower posterior chains ...")
-        posterior_mask = (np.median(reduced_posterior, axis=0) - np.median(reduced_posterior)) > -np.std(reduced_posterior)
+        # Cut chains with lower log_prob
+        log.info(f"Removing lower log_prob chains")
+        log_prob_mask = (np.median(reduced_log_prob, axis=0) - np.median(reduced_log_prob)) > -np.std(reduced_log_prob)
 
-        reduced_chain = reduced_chain[posterior_mask,:,:]
-        reduced_posterior = reduced_posterior[:,posterior_mask]
+        reduced_chain = reduced_chain[log_prob_mask,:,:]
+        reduced_log_prob = reduced_log_prob[:,log_prob_mask]
 
         # Check consistency between chains
-        logging.info(f"Calculating Gelman-Rubin diagnostic ...")
+        log.info(f"Calculating Gelman-Rubin diagnostic")
         r_hat, _, _ = gelman_rubin(reduced_chain)
         r_mvar = gelman_brooks(reduced_chain)
 
-        logging.info(f"Calculating Gelman-Brooks diagnostic ...")
+        log.info(f"Calculating Gelman-Brooks diagnostic")
         r_hat_str = "".join([" {:>9.5f}".format(ri) for ri in r_hat])
-        output = f"{output} {r_mvar.max():>9.5f}{r_hat_str}"
+        
+        output_dict["multi_rhat"] = r_mvar.max()
+        output_dict["rhat"] = r_hat
 
-
-        logging.info(f"Calculating parameter statistics ...")
-        params = {}
+        log.info(f"Calculating parameter statistics")
+        params = {"names": names}
         samples = reduced_chain.reshape([reduced_chain.shape[0]*reduced_chain.shape[1], reduced_chain.shape[2]])
         params["median"] = np.median(samples, axis=0)
         params["hpd_down"], params["hpd_up"] = hpd(reduced_chain, level=0.683)
         hpd_99_down, hpd_99_up = hpd(reduced_chain, level=0.99)
         params["hpd_99_interval"] = (hpd_99_up - hpd_99_down)
-        params["mapv"] = mapv(reduced_chain, reduced_posterior)
+        params["mapv"] = mapv(reduced_chain, reduced_log_prob)
         params["modes"] = mode(chain)
 
-        results_str = "".join([f"{params['mapv'][i]:>15.10f} {params['modes'][i]:>15.10f} {params['median'][i]:>15.10f} {params['hpd_down'][i]:>15.10f} {params['hpd_up'][i]:>15.10f} {params['hpd_99_interval'][i]:>15.10f}" for i in range(params['median'].size)])
-        output = f"{output}{results_str}\n"
-
-        """
         # Get the median and 68% intervals for each of the parameters
-        # logging.info(f"Calculating medians and stds ...")
+        # log.info(f"Calculating medians and stds")
         # samples = reduced_chain.reshape([reduced_chain.shape[0]*reduced_chain.shape[1], reduced_chain.shape[2]])
         # percentiles = np.percentile(samples.T, [50,16,84], axis=1)
         # median = percentiles[0]
@@ -426,64 +429,131 @@ class Model():
 
         # results_str = "".join([f" {median[i]:>15.10f} {lower[i]:>15.10f} {upper[i]:>15.10f}" for i in range(median.size)])
         # output = f"{output}{results_str}\n"
-        """
 
-        if plot:
-            logging.info(f"Plotting Gelman-Rubin analysis ...")
-            gelman_fig = gelman_rubin_plot(reduced_chain, pnames=names)
-            gelman_fig.savefig(f"{figure_folder}/gelman_plot.pdf")
+        output_dict["params"] = params
 
-            logging.info(f"Plotting parameter histograms ...")
-            parameter_fig = parameter_hist(chain, params, pnames=names)
-            parameter_fig.savefig(f"{figure_folder}/parameter_hist.pdf")
+        cls.stats = {}
+        cls.stats["params"] = params
+        cls.stats["chain"] = chain
+        cls.stats["log_prob"] = log_prob
+        cls.stats["reduced_chain"] = reduced_chain
+        cls.stats["reduced_log_prob"] = reduced_log_prob
+        cls.stats_flag = True
 
-            logging.info(f"Plotting corner ...")
-            corner_fig = corner_plot(reduced_chain, pnames=names, downsample=5)
-            corner_fig.savefig(f"{figure_folder}/corner_plot.pdf")
+        # TODO: Output to file. Can be based on dict
+        # --------------------------------------------------------------------------
+        # output = f"{lc_file.stem:>13s}"
+        # output = f"{output} {str(geweke_flag):>7s} {num_walkers:>4d} {starts[start_index]/chain.shape[1]:>5.2f}"
+        # output = f"{output} {r_mvar.max():>9.5f}{r_hat_str}"
+        # results_str = "".join([f"{params['mapv'][i]:>15.10f} {params['modes'][i]:>15.10f} {params['median'][i]:>15.10f} {params['hpd_down'][i]:>15.10f} {params['hpd_up'][i]:>15.10f} {params['hpd_99_interval'][i]:>15.10f}" for i in range(params['median'].size)])
+        # output = f"{output}{results_str}\n"
 
-            logging.info(f"Plotting posterior histogram ...")
-            posterior_fig = posterior_hist(reduced_posterior)
-            posterior_fig.savefig(f"{figure_folder}/posterior_hist.pdf")
+        # # Output to file
+        # if fout is not None:
+        #     log.info(f"Writing output to file {fout}")
+        #     with open(fout, "a+") as o:
+        #         o.write(output)
+        # --------------------------------------------------------------------------
 
-            logging.info(f"Plotting traces ...")
-            trace_fig = trace_plot(chain, posterior, pnames=names, downsample=10)
-            trace_fig.savefig(f"{figure_folder}/trace_plot.pdf")
-
-            # Plot the lightcurve with the GP distribution and/or the transit + zoom in - separately
-            # logging.info(f"Plotting lightcurve and zoom ...")
-            # lc_fig, lc_zoom_fig = lc_plot(cls.gp_model, cls.mean_model, params, cls.time, cls.flux, cls.flux_err, offset=0.06, oversample=10)
-            # lc_fig.savefig(f"{figure_folder}/lc_plot.pdf")
-            # lc_zoom_fig.savefig(f"{figure_folder}/lc_zoom_plot.pdf")
-
-            # Plot the lightcurve with the GP distribution and/or the transit + zoom in - same plot
-            #logging.info(f"Plotting lightcurve with zoom ...")
-            #lc_double_fig = lc_double_plot(cls.gp_model, cls.mean_model, params, cls.time, cls.flux, cls.flux_err, offset=0.06, oversample=10)
-            #lc_double_fig.savefig(f"{figure_folder}/lc_double_plot.pdf")
-            # gp_double_fig.savefig(f"{figure_folder}/gp_double_plot.png", dpi=800)
-
-            if cls.gp_model is not None:
-                logging.info(f"Plotting PSD ...")
-                psd_fig = psd_plot(cls.gp_model, cls.mean_model, params, cls.time, cls.flux, include_data=True, parseval_norm=True)
-                psd_fig.savefig(f"{figure_folder}/psd_plot.pdf")
-
-        # Output to file
-        if fout is not None:
-            logging.info(f"Writing output to file {fout}...")
-            with open(fout, "a+") as o:
-                o.write(output)
+    @classmethod
+    def analysis(cls, fout=None):
+        if not cls.stats_flag:
+            cls.statistics()
         
-        logging.info(f"Analysis complete: {time.time()-start_time:.4f} seconds")
+        if not cls.figdir.is_dir():
+            cls.figdir.mkdir()      
+
+        cls.plot_gelman_rubin()
+        cls.plot_parameter_hist()
+        cls.plot_corner_plot()
+        cls.plot_log_prob_hist()
+        cls.plot_trace_plot()
+        cls.plot_lc_double_plot()
+        cls.plot_psd_plot()
         plt.close("all")
 
-        return output
+    @classmethod
+    def plot_gelman_rubin(cls, save=True):
+        # TODO: This flag should not be in all functions but it will do for now
+        if not cls.stats_flag:
+            cls.statistics()
+        log.info(f"Plotting Gelman-Rubin analysis")
+        gelman_fig = gelman_rubin_plot(cls.stats["reduced_chain"], pnames=cls.stats["params"]["names"])
+        if save:
+            gelman_fig.savefig(f"{cls.figdir}/gelman_plot.pdf")
+            plt.close(gelman_fig)
+        else:
+            return gelman_fig
 
 
-if __name__ == "__main__":
-    # Process arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument("lc_file")
-    parser.add_argument("config_file")
-    args = parser.parse_args()
+    @classmethod
+    def plot_parameter_hist(cls, save=True):
+        if not cls.stats_flag:
+            cls.statistics()
+        log.info(f"Plotting parameter histograms")
+        parameter_fig = parameter_hist(cls.stats["chain"], cls.stats["params"], pnames=cls.stats["params"]["names"])
+        if save:
+            parameter_fig.savefig(f"{cls.figdir}/parameter_hist.pdf")
+            plt.close(parameter_fig)
+        else:
+            return parameter_fig
+
+    @classmethod
+    def plot_corner_plot(cls, save=True):
+        if not cls.stats_flag:
+            cls.statistics()
+        log.info(f"Plotting corner")
+        corner_fig = corner_plot(cls.stats["reduced_chain"], pnames=cls.stats["params"]["names"], downsample=5)
+        if save:
+            corner_fig.savefig(f"{cls.figdir}/corner_plot.pdf")
+            plt.close(corner_fig)
+        else:
+            return corner_fig
     
-    model = Model(args.lc_file, args.config_file)
-    model.run()
+    @classmethod
+    def plot_log_prob_hist(cls, save=True):
+        if not cls.stats_flag:
+            cls.statistics()
+        log.info(f"Plotting log_prob histogram")
+        log_prob_fig = log_prob_hist(cls.stats["reduced_log_prob"])
+        if save:
+            log_prob_fig.savefig(f"{cls.figdir}/log_prob_hist.pdf")
+            plt.close(log_prob_fig)
+        else:
+            return log_prob_fig
+
+    @classmethod
+    def plot_trace_plot(cls, save=True):
+        if not cls.stats_flag:
+            cls.statistics()
+        log.info(f"Plotting traces")
+        trace_fig = trace_plot(cls.stats["chain"], cls.stats["log_prob"], pnames=cls.stats["params"]["names"], downsample=10)
+        if save:
+            trace_fig.savefig(f"{cls.figdir}/trace_plot.pdf")
+            plt.close(trace_fig)
+        else:
+            return trace_fig
+
+    @classmethod
+    def plot_lc_double_plot(cls, save=True):
+        if not cls.stats_flag:
+            cls.statistics()
+        log.info(f"Plotting lightcurve with zoom")
+        lc_double_fig = lc_double_plot(cls.gp_model, cls.mean_model, cls.stats["params"], cls.lc.time, cls.lc.flux, cls.lc.flux_err, offset=0.14, oversample=2)
+        if save:
+            lc_double_fig.savefig(f"{cls.figdir}/lc_double_plot.pdf")
+            plt.close(lc_double_fig)
+        else:
+            return lc_double_fig
+    
+    @classmethod
+    def plot_psd_plot(cls, save=True):
+        if not cls.stats_flag:
+            cls.statistics()
+        log.info(f"Plotting PSD")
+        psd_fig = psd_plot(cls.gp_model, cls.mean_model, cls.stats["params"], cls.lc.time, cls.lc.flux)
+        if save:
+            psd_fig.savefig(f"{cls.figdir}/psd_plot.pdf")
+            plt.close(psd_fig)
+        else:
+            return psd_fig

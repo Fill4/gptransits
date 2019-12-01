@@ -5,8 +5,6 @@ __all__ = ["Settings"]
 
 # Simple class to store default settings for execution
 class Settings():
-    log_level = logging.INFO
-    log_to_file = False
     save = True
     
     include_errors = True

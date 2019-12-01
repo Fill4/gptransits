@@ -84,7 +84,7 @@ def geweke(chain, frac1=0.1, frac2=0.5, bins=10):
     Returns
     -------
         zscores : array-like
-            Array of [nwalkers, nparameters] where each value is the Geweke z-score for the interval of each walker
+            Array of [bins, nwalkers, nparameters] where each value is the Geweke z-score for the interval of each walker
     """
     zscores = np.full([bins, chain.shape[0], chain.shape[2]], 100.0)
 

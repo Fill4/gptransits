@@ -1,5 +1,3 @@
-import logging
-
 import numpy as np
 import celerite
 
@@ -67,7 +65,7 @@ class GPModel(object):
 			i += component.npars
 		return kernel
 
-	def get_psd(self, params, time, min_freq=0.0):
+	def get_psd(self, params, time, min_freq=0.0, nyquist_mult=1):
 
 		days_to_microsec = (24*3600) / 1e6
 		cadence = (time[1] - time[0]) * days_to_microsec
@@ -76,12 +74,12 @@ class GPModel(object):
 		time_span = (time[-1] - time[0]) * days_to_microsec
 		f_sampling = 1 / time_span
 
-		freq = np.linspace(min_freq, nyquist, ((nyquist-min_freq)/f_sampling)+1)
+		freq = np.linspace(min_freq, nyquist*nyquist_mult, ((nyquist*nyquist_mult-min_freq)/f_sampling)+1)
 
 		i = 0
 		psd_vector = []
 		for component in self.component_vector:
-			psd_vector.append(component.get_psd(params[i:i+component.npars], freq, time.size, nyquist))
+			psd_vector.append(component.get_psd(params[i:i+component.npars], freq, time.size, nyquist*nyquist_mult))
 			i += component.npars
 		return freq, np.asarray(psd_vector)
 		

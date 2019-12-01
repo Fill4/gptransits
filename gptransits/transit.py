@@ -7,6 +7,8 @@ from scipy.stats import uniform, norm, reciprocal
 import batman
 # import pysyzygy as ps
 
+log = logging.getLogger("log")
+
 # Define the transit models
 class BatmanModel(object):
 	def __init__(self, name, params_dict):
@@ -62,7 +64,7 @@ class BatmanModel(object):
 			self.batpars.limb_dark = 'linear'
 		else:
 			self.batpars.limb_dark = "quadratic"
-		logging.debug(f"Transit Model using {self.batpars.limb_dark} limb darkening")
+		log.debug(f"Transit Model using {self.batpars.limb_dark} limb darkening")
 
 	def get_parameters_names(self):
 		return self.parameter_names[self.mask]
@@ -100,19 +102,19 @@ class BatmanModel(object):
 	def get_value(self, params, time):
 		self.update_params(params)
 
-		logging.debug("Before batman flux")
-		logging.debug(f"Period: {self.batpars.per}")
-		logging.debug(f"Epoch: {self.batpars.t0}")
-		logging.debug(f"Radius ratio: {self.batpars.rp}")
-		logging.debug(f"Semi-major axis: {self.batpars.a}")
-		logging.debug(f"Inclination: {self.batpars.inc}")
-		logging.debug(f"Eccentricity: {self.batpars.ecc}")
-		logging.debug(f"Arg periastron: {self.batpars.w}")
-		logging.debug(f"Limb darkening: {self.batpars.u}")
+		log.debug("Before batman flux")
+		log.debug(f"Period: {self.batpars.per}")
+		log.debug(f"Epoch: {self.batpars.t0}")
+		log.debug(f"Radius ratio: {self.batpars.rp}")
+		log.debug(f"Semi-major axis: {self.batpars.a}")
+		log.debug(f"Inclination: {self.batpars.inc}")
+		log.debug(f"Eccentricity: {self.batpars.ecc}")
+		log.debug(f"Arg periastron: {self.batpars.w}")
+		log.debug(f"Limb darkening: {self.batpars.u}")
 		
 		flux = self.model.light_curve(self.batpars)
 		
-		logging.debug("After batman flux")
+		log.debug("After batman flux")
 		return (flux-1)*1e6
 	
 	# def oversample(self, params, supersample_factor=10):
@@ -167,8 +169,8 @@ class PysyzygyModel(object):
 				elif i == 8:
 					self.u2 = params_values[pname][1]
 				else:
-					# logging.error("Fixing parameter values is not yet supported")
-					logging.error("Can only fix limb darkening values")
+					# log.error("Fixing parameter values is not yet supported")
+					log.error("Can only fix limb darkening values")
 					sys.exit(1)
 			elif params_values[pname][2] == "uniform":
 				self.prior.append(uniform(params_values[pname][3], params_values[pname][4] - params_values[pname][3]))
@@ -216,7 +218,7 @@ class PysyzygyModel(object):
 		self.pars["w"]= np.deg2rad(params[5])
 		# self.pars["u1"]= params[7]
 		# self.pars["u2"]= params[8]
-		logging.debug(self.pars)
+		log.debug(self.pars)
 		self.model = ps.Transit(**self.pars, ldmodel=self.ldmodel, exppts=self.supersamp)
 
 	def lnprior(self, params):
@@ -226,19 +228,19 @@ class PysyzygyModel(object):
 	def get_value(self, params, time):
 		self.update_params(params)
 
-		logging.debug("Before pysygyzy flux")
-		logging.debug(f"Period: {self.batpars.per}")
-		logging.debug(f"Epoch: {self.batpars.t0}")
-		logging.debug(f"Radius ratio: {self.batpars.rp}")
-		logging.debug(f"Semi-major axis: {self.batpars.a}")
-		logging.debug(f"Inclination: {self.batpars.inc}")
-		logging.debug(f"Eccentricity: {self.batpars.ecc}")
-		logging.debug(f"Arg periastron: {self.batpars.w}")
-		logging.debug(f"Limb darkening: {self.batpars.u}")
+		log.debug("Before pysygyzy flux")
+		log.debug(f"Period: {self.batpars.per}")
+		log.debug(f"Epoch: {self.batpars.t0}")
+		log.debug(f"Radius ratio: {self.batpars.rp}")
+		log.debug(f"Semi-major axis: {self.batpars.a}")
+		log.debug(f"Inclination: {self.batpars.inc}")
+		log.debug(f"Eccentricity: {self.batpars.ecc}")
+		log.debug(f"Arg periastron: {self.batpars.w}")
+		log.debug(f"Limb darkening: {self.batpars.u}")
 
 		flux = self.model(time, param="unbinned")
 
-		logging.debug("After pysygyzy flux")
+		log.debug("After pysygyzy flux")
 		return (flux-1)*1e6
 	
 """
