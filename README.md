@@ -1,5 +1,9 @@
 # gptransits
 
+[![arXiv](https://img.shields.io/badge/arXiv-1908.10662-b31b1b.svg?style=flat)](https://arxiv.org/abs/1908.10662)
+[![DOI](https://zenodo.org/badge/85022223.svg)](https://zenodo.org/badge/latestdoi/85022223)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
 **Fit planetary transits and stellar signals at the same time with the help of gaussian processes**
 
 ## Installation

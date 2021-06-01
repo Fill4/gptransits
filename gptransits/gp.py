@@ -3,28 +3,30 @@ import celerite
 
 from .component import Granulation, OscillationBump, WhiteNoise
 
+import logging
+log = logging.getLogger(__name__)
+
 class GPModel(object):
 	def __init__(self, config):
 		self.component_vector = []
 		# If there is a configuration list, init all the components
 		for i in range(len(config)):
-			component_type = config[i]["type"]
+			try:
+				component_type = config[i]["type"]
+			except KeyError:
+				log.exception("Need component type to define component")
+				sys.exit()
 			if component_type == "granulation":
-				self.component_vector.append(Granulation(config[i]["name"], config[i]["params"]))
+				self.component_vector.append(Granulation(config[i]))
 			elif component_type == "oscillation_bump":
-				self.component_vector.append(OscillationBump(config[i]["name"], config[i]["params"]))
+				self.component_vector.append(OscillationBump(config[i]))
 			elif component_type == "white_noise":
-				self.component_vector.append(WhiteNoise(config[i]["name"], config[i]["params"]))
+				self.component_vector.append(WhiteNoise(config[i]))
 			else:
-				print(f"Component type chosen not recognized: {component_type}")
-				sys.exit(1)
+				log.exception(f"Component type defined not recognized: {component_type}")
+				sys.exit()
 		self.component_vector = np.asarray(self.component_vector)
-
-	# def __repr__(self):
-	# 	string = f"Model with {self.component_vector.size} components:\n"
-	# 	for component in self.component_vector:
-	# 		string += repr(component) + '\n'
-	# 	return string
+		self.ndim = np.sum([component.npars for component in self.component_vector])
 
 	def get_component_names(self):
 		return np.array([component.name for component in self.component_vector])
@@ -74,7 +76,7 @@ class GPModel(object):
 		time_span = (time[-1] - time[0]) * days_to_microsec
 		f_sampling = 1 / time_span
 
-		freq = np.linspace(min_freq, nyquist*nyquist_mult, ((nyquist*nyquist_mult-min_freq)/f_sampling)+1)
+		freq = np.linspace(min_freq, nyquist*nyquist_mult, int((nyquist*nyquist_mult-min_freq)/f_sampling)+1)
 
 		i = 0
 		psd_vector = []

@@ -1,10 +1,10 @@
-#!/usr/bin/env python3
 """
 Fits a transit model together with a Gaussian Process model created by celerite to lightcurve observations
 """
 
 import sys, os
 import pickle
+import json
 import time
 import logging
 from pathlib import Path
@@ -21,7 +21,6 @@ import lightkurve as lk
 # Model imports
 from .transit import BatmanModel#, PysyzygyModel
 from .gp import GPModel
-from .settings import Settings
 
 # Analysis imports
 from .convergence import geweke, gelman_rubin, gelman_brooks
@@ -30,15 +29,16 @@ from .plot import *
 
 __all__ = ["Model"]
 
-log = logging.getLogger("my_logger")
+log = logging.getLogger(__name__)
 
 class Model():
     # Directories, configuration dict and settings struct # TODO: Move to general struct possibly
-    workdir = None
-    outdir = None
+    wdir = None
+    datadir = None
     figdir = None
-    cfg = None
-    settings = None
+
+    config = None
+    settings = {"save": True, "include_errors": True, "seed": 42, "num_threads": os.cpu_count(), "num_steps": 25000}
 
     # LightCurve object from lightkurve
     lc = None
@@ -50,11 +50,6 @@ class Model():
     # Static handle to Likelihood function defined according to models defined
     lnlike_func = None
 
-    # MCMC static settings
-    mean_model_ndim = 0
-    gp_model_ndim = 0
-    ndim = 0
-
     # Sampler data
     backend = None
     chain = None
@@ -65,64 +60,82 @@ class Model():
     stats_flag = False
 
     @classmethod
-    def __init__(cls, lc, cfg=None, workdir=None, quiet=False, logfile=None):
-        # Setp the main logger. Clear the logger handlers list as this is a static class and we would accumulate
+    def __init__(cls, lc, config=None, wdir=None, quiet=False, logfile=None):
+        # -------------------------- Logging ------------------------------
+        # Setup the main logger
+        # Clear the logger handlers list as this is a static class and we would accumulate
         log.handlers = []
+        log.propagate = False
         if quiet:
             loglevel = logging.WARN
         else:
             loglevel = logging.INFO
         log.setLevel(loglevel)
+        formatter = logging.Formatter('[%(asctime)s] %(name)s %(levelname)s: %(message)s')
         if logfile is None:
             sh = logging.StreamHandler()
             sh.setLevel(loglevel)
-            formatter = logging.Formatter('[%(levelname)s] %(message)s')
             sh.setFormatter(formatter)
             log.addHandler(sh)
         else:
             fh = logging.FileHandler("log.txt", filemode="w")
             fh.setLevel(loglevel)
-            formatter = logging.Formatter('[%(levelname)s] %(message)s')
             fh.setFormatter(formatter)
             log.addHandler(fh)
 
-        # Setup workdir workdir
-        if workdir is None:
-            cls.workdir = Path(".")
+        # ------------------------- Working dir -----------------------------
+        # Setup working directory
+        if wdir is None:
+            cls.wdir = Path(".")
         else:
-            cls.workdir = Path(workdir)
-        log.info(f'Working in directory: {cls.workdir.resolve()}')
-        cls.outdir = cls.workdir / "output"
-        cls.figdir = cls.workdir / "figures"
+            cls.wdir = Path(wdir)
+        log.info(f'Working directory: {cls.wdir.resolve()}')
+        cls.datadir = cls.wdir / "data"
+        cls.figdir = cls.wdir / "figures"
 
-        # Define config file path and try to get config from file
-        if cfg is None:
-            cfg_file = cls.workdir / "config.py"
+        # ----------------------- Configuration -----------------------------
+        # Load config from default file in wdir or from config filepath argument
+        if config is None or isinstance(config, str):
+            if config is None:
+                config_file = cls.wdir / "config.json"
+            else:
+                config_file = Path(config)
+            try:
+                with open(config_file, "r") as f:
+                    cls.config = json.load(f)
+            except FileNotFoundError:
+                log.exception(f"Config file {config_file} does not exist in the working directory")
+                sys.exit()
+            except Exception:
+                log.exception(f"Failed to load config from {config_file.stem}")
+                sys.exit()
+        # Or by directly passing in a configuration dictionary
+        elif isinstance(config, dict):
+            cls.config = config
         else:
-            cfg_file = Path(cfg)
-        try:
-            spec = importlib.util.spec_from_file_location("config", cfg_file)
-            cls.cfg = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(cls.cfg)
-        except Exception:
-            log.exception(f"Couldn't import {cfg_file.stem}")
+            log.exception("Config needs to be a filepath or a configuration dictionary")
             sys.exit()
-        sys.modules["cfg"] = cls.cfg
 
+        # --------------------------- Settings --------------------------------
         # Define settings either from config file or default
-        if hasattr(cls.cfg, "settings"):
-            cls.settings = cls.cfg.settings
-        else:
-            cls.settings = Settings()
-
+        if 'settings' in cls.config:
+            for key, val in cls.config['settings'].items():
+                try:
+                    cls.settings[key] = val
+                except KeyError:
+                    log.exception("Trying to define a setting that does not exist")
         # Set random state early to control the initial random sample and also emcee iterations
-        np.random.seed(cls.settings.seed)
+        np.random.seed(cls.settings['seed'])
 
+        # ---------------------- Load data and setup ----------------------------
         # If the lc passed was a string, read it into a lk.LightCurve object
         if isinstance(lc, str):
             cls.load_lc_from_file(Path(lc))
         elif isinstance(lc, lk.LightCurve):
             cls.lc = lc
+        else:
+            log.exception("LC needs to be a lightcurve filepath or LightCurve object from lightkurve")
+            sys.exit()
 
         # Setup the gp and transit models from the configuration files
         cls.setup_models()
@@ -136,40 +149,39 @@ class Model():
         try:
             time, flux, flux_err = np.loadtxt(lc_file, unpack=True)
         except ValueError:
-            if cls.settings.include_errors:
-                log.error(f"Need a flux_err column when include_errors is True")
+            if cls.settings['include_errors']:
+                log.exception(f"Need a flux_err column when include_errors is True")
                 sys.exit()
             try:
                 time, flux = np.loadtxt(lc_file, unpack=True)
                 flux_err = None
             except ValueError:
-                log.error(f"Couldn't load data from the lc_file: {lc_file}")
+                log.exception(f"Couldn't load data from the lc_file: {lc_file}")
                 sys.exit()
                 
 
         # TODO: Needs to correct for the format of data being processed
-        cls.lc = lk.LightCurve(time = np.copy(time), flux = np.copy(flux) * 1e6, flux_err = flux_err)
+        cls.lc = lk.LightCurve(time = np.copy(time), flux = np.copy(flux) * 1e6, flux_err = flux_err * 1e6)
         cls.lc.meta["lc_file"] = lc_file
 
     @classmethod
     def setup_models(cls):
 
-        # Setup a transit model if there is config in file. # TODO: Add other models
-        if hasattr(cls.cfg, "transit"):
-            cls.mean_model = BatmanModel(cls.cfg.transit["name"], cls.cfg.transit["params"])
+        # Setup a transit model if there is config in file. 
+        # TODO: Add other models. Only one planet for now.
+        if "transit" in cls.config:
+            cls.mean_model = BatmanModel(cls.config['transit'][0]) 
             cls.mean_model.init_model(cls.lc.time, cls.lc.time[1]-cls.lc.time[0], 6)
-            cls.mean_model_ndim = cls.mean_model.mask.sum()
 
         # Setup gp model according to the config file
-        if hasattr(cls.cfg, "gp"):
-            cls.gp_model = GPModel(cls.cfg.gp)
+        if 'gp' in cls.config:
+            cls.gp_model = GPModel(cls.config['gp'])
             kernel = cls.gp_model.get_kernel(cls.gp_model.sample_prior()[0])
-            cls.gp_model_ndim = kernel.get_parameter_vector().size
 
             # Setup celerite gp with kernel. Time goes in microseconds for the muHz parameters in the GP
             cls.gp = celerite.GP(kernel)
             days_to_microsec = (24*3600) / 1e6
-            if cls.settings.include_errors:
+            if cls.settings['include_errors']:
                 cls.gp.compute(cls.lc.time*days_to_microsec, yerr=cls.lc.flux_err)
             else:
                 cls.gp.compute(cls.lc.time*days_to_microsec)
@@ -191,10 +203,10 @@ class Model():
     @classmethod
     def load_data(cls):
         # Define backend if we want to save progress and load the data there
-        if cls.settings.save:
-            if not cls.outdir.is_dir():
-                cls.outdir.mkdir()
-            filename = cls.outdir / "chain.hdf5"
+        if cls.settings['save']:
+            if not cls.datadir.is_dir():
+                cls.datadir.mkdir()
+            filename = cls.datadir / "chain.hdf5"
             cls.backend = emcee.backends.HDFBackend(str(filename), name="gptransits")
 
             # TODO: Probably doesnt work right now because of chain dimensions return in backend
@@ -214,9 +226,9 @@ class Model():
     @classmethod
     def run(cls, reset=False, num_threads=1):
         # -------------------- MCMC ----------------------------
-        cls.ndim = cls.mean_model_ndim + cls.gp_model_ndim
+        cls.ndim = cls.mean_model.ndim + cls.gp_model.ndim
         nwalkers =  cls.ndim * 4
-        nsteps = cls.settings.num_steps
+        nsteps = cls.settings['num_steps']
         # By default we define the initial params from the priors
         set_params = True
         # Check backend status and iterations and compare to config. Reset if flag is true
@@ -255,7 +267,7 @@ class Model():
 
         # Single or Multiprocessing always uses pool as the init_worker can handle the system interrupts
         pool = Pool(num_threads, cls.init_worker)
-        sampler = emcee.EnsembleSampler(nwalkers, cls.ndim, cls.lnlike_func, pool=pool, backend=cls.backend)
+        sampler = emcee.EnsembleSampler(nwalkers, cls.ndim, cls.lnlike_func, pool=None, backend=cls.backend)
 
         # Run mcmc
         log.info(f"Running MCMC on {num_threads} processes for {nsteps} iterations")
@@ -271,12 +283,12 @@ class Model():
         cls.chain = sampler.chain.copy() 
         cls.log_prob = sampler.get_log_prob().copy()
 
-        # Save data # TODO: Need to update lnprobability name and then update filenames
-        if cls.settings.save:
+        # Save data # TODO: Need to update posterior name and then update filenames
+        if cls.settings['save']:
             log.info(f"Saving chain and log_prob")
-            with open(cls.outdir / "chain.pk", "wb") as f:
+            with open(cls.datadir / "chain.pk", "wb") as f:
                 pickle.dump(sampler.chain, f, protocol=-1)
-            with open(cls.outdir / "lnprobability.pk", "wb") as f:
+            with open(cls.datadir / "posterior.pk", "wb") as f:
                 pickle.dump(sampler.get_log_prob(), f, protocol=-1)
 
     # -------------------------------------------------------------------------------------------
@@ -285,16 +297,16 @@ class Model():
     # Defines the likelihood function for emcee. Classmethod (global) to allow for multithreading
     @classmethod
     def full_lnlike(cls, params):
-        gp_lnprior = cls.gp_model.lnprior(params[:cls.gp_model_ndim])
-        mean_lnprior = cls.mean_model.lnprior(params[cls.gp_model_ndim:])
+        gp_lnprior = cls.gp_model.lnprior(params[:cls.gp_model.ndim])
+        mean_lnprior = cls.mean_model.lnprior(params[cls.gp_model.ndim:])
         if not (np.isfinite(gp_lnprior) and np.isfinite(mean_lnprior)):
             return -np.inf
         
         # Convert params to celerite model and update gp object
-        gp_params = cls.gp_model.get_parameters_celerite(params[:cls.gp_model_ndim])
+        gp_params = cls.gp_model.get_parameters_celerite(params[:cls.gp_model.ndim])
         cls.gp.set_parameter_vector(gp_params)
 
-        mean = cls.mean_model.get_value(params[cls.gp_model_ndim:], cls.lc.time)
+        mean = cls.mean_model.compute(params[cls.gp_model.ndim:], cls.lc.time)
         lnlikelihood = cls.gp.log_likelihood(cls.lc.flux - mean)
             
         return mean_lnprior + gp_lnprior + lnlikelihood
@@ -314,11 +326,11 @@ class Model():
 
     @classmethod
     def transit_lnlike(cls, params):
-        mean_lnprior = -cls.mean_model.lnprior(params[cls.gp_model_ndim:])
+        mean_lnprior = -cls.mean_model.lnprior(params[cls.gp_model.ndim:])
         if not np.isfinite(mean_lnprior):
             return -np.inf
     
-        residuals = cls.lc.flux - cls.mean_model.get_value(params, cls.lc.time)
+        residuals = cls.lc.flux - cls.mean_model.compute(params, cls.lc.time)
         # TODO: Needs white noise component added here maybe
         if cls.lc.flux_err is not None:
             lnlikelihood = np.sum(-0.5 * (residuals**2 / cls.lc.flux_err**2))
@@ -337,24 +349,25 @@ class Model():
     @classmethod
     def statistics(cls, fout=None):
         # Setup folder names and load chain and log_prob from the pickle files
-        log.info(f"Running full analysis on: {cls.lc.meta['lc_file'].stem}")
-        
+        # log.info(f"Running statistics on: {cls.lc.meta['lc_file'].stem}")
+        log.info("Running statistics")
+
         # Read in all data
         if cls.chain is not None and cls.log_prob is not None:
             log.info(f"Using data from current model")
             chain = cls.chain.copy()
             log_prob = cls.log_prob.copy()
         else:
-            log.info(f"Fetching data from output directory: {cls.outdir}")
-            if not cls.outdir.is_dir():
-                log.error(f"No directory with target data to analyse: {cls.outdir}")
+            log.info(f"Fetching data from data directory: {cls.datadir}")
+            if not cls.datadir.is_dir():
+                log.error(f"Directory has no target data to analyse: {cls.datadir}")
                 sys.exit()
 
-            log.info(f"Fetching: {cls.outdir}/chain.pk")
-            with open(f"{cls.outdir}/chain.pk", "rb") as f:
+            log.info(f"Fetching: {cls.datadir}/chain.pk")
+            with open(f"{cls.datadir}/chain.pk", "rb") as f:
                 chain = pickle.load(f)
-            log.info(f"Fetching: {cls.outdir}/lnprobability.pk")
-            with open(f"{cls.outdir}/lnprobability.pk", "rb") as p:
+            log.info(f"Fetching: {cls.datadir}/posterior.pk")
+            with open(f"{cls.datadir}/posterior.pk", "rb") as p:
                 log_prob = pickle.load(p)
 
         if cls.gp_model is not None and cls.mean_model is not None:
@@ -366,7 +379,8 @@ class Model():
         elif cls.gp_model is not None:
             names = cls.gp_model.get_parameters_latex()
         
-        output_dict = {"name": cls.lc.meta["lc_file"].stem}
+        # output_dict = {"name": cls.lc.meta["lc_file"].stem}
+        output_dict = {}
 
         # Run burn-in diagnostics (Geweke)
         log.info(f"Calculating Geweke diagnostic")

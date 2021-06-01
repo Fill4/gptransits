@@ -6,28 +6,26 @@ import celerite
 
 # Base class for all kernel components for the GPModel
 class Component(object):
-	def __init__(self, name, params_dict):
-		# Get component name
-		self.name = name
+	def __init__(self, config):
 		# Check that config dictionary as correct number of entries
-		if self.npars != len(params_dict["values"].keys()):
-			print(f"Component needs to have {self.npars} number of parameters.")
+		if self.npars != len(config["values"].keys()):
+			print(f"Component needs to have {self.npars} parameters")
 			sys.exit(1)
 
-		if "latex_names" in params_dict:
-			if (self.npars != len(params_dict["latex_names"])):
+		if "latex_names" in config:
+			if (self.npars != len(config["latex_names"])):
 				print(f"Component latex names must have size {self.npars}")
 				sys.exit(1)
-			self.parameter_latex_names = params_dict["latex_names"]
-		if "units" in params_dict:
-			if (self.npars != len(params_dict["units"])):
+			self.parameter_latex_names = config["latex_names"]
+		if "units" in config:
+			if (self.npars != len(config["units"])):
 				print(f"Component units must have size {self.npars}")
 				sys.exit(1)
-			self.parameter_units = params_dict["units"]
+			self.parameter_units = config["units"]
 
 		# Setup the priors and init parameters
 		self.prior = []
-		params_values = params_dict["values"]
+		params_values = config["values"]
 		for pname in self.parameter_names:
 			if params_values[pname][0]:
 				print("Fixing parameter values is not yet supported")
@@ -66,15 +64,21 @@ class Component(object):
 		
 
 class Granulation(Component):
-	def __init__(self, name, config):
+	def __init__(self, config):
 		self.npars = 2
 		self.parameter_names = ['a_gran', 'b_gran']
 		self.parameter_latex_names = [r'$a_{gran}$', r'$b_{gran}$']
 		self.parameter_units = ['ppm', r'$\mu$Hz']
 		# default_prior = np.array([[20, 400], [10, 200]])
 
+		# Get component name
+		if 'name' in config:
+			self.name = config['name']
+		else:
+			self.name = 'Granulation'
+
 		# Parent contructor to init the priors
-		super().__init__(name, config)
+		super().__init__(config['params'])
 
 	def get_parameters_celerite(self, params):
 		a, b = params
@@ -105,15 +109,21 @@ class Granulation(Component):
 		return kernel
 
 class OscillationBump(Component):
-	def __init__(self, name, config):
+	def __init__(self, config):
 		self.npars = 3
 		self.parameter_names = ['P_g', 'Q', 'nu_max']
 		self.parameter_latex_names = [r'$P_{g}$', r'$Q_{bump}$', r'$\nu_{max}$']
 		self.parameter_units = ['ppm', '', r'$\mu$Hz']
 		# default_prior = np.array([[10, 1500], [1.2, 15], [100, 220]])
 		
+		# Get component name
+		if 'name' in config:
+			self.name = config['name']
+		else:
+			self.name = 'OscillationBump'
+
 		# Parent contructor to init the priors
-		super().__init__(name, config)
+		super().__init__(config['params'])
 
 	def get_parameters_celerite(self, params):
 		P_g, Q, numax = params
@@ -139,15 +149,21 @@ class OscillationBump(Component):
 
 class WhiteNoise(Component):
 	
-	def __init__(self, name, config):
+	def __init__(self, config):
 		self.npars = 1
 		self.parameter_names = ['jitter']
 		self.parameter_latex_names = [r'White Noise']
 		self.parameter_units = ['ppm']
 		# default_prior = np.array([[1e-3, 300]])
 
+		# Get component name
+		if 'name' in config:
+			self.name = config['name']
+		else:
+			self.name = 'WhiteNoise'
+
 		# Parent contructor to init the priors
-		super().__init__(name, config)
+		super().__init__(config['params'])
 
 	def get_parameters_celerite(self, params):
 		jitter, = params

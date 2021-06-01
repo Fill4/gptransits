@@ -20,7 +20,7 @@ def gelman_rubin_plot(chain, steps=100, pnames=None):
 		R_hat[s], V[s], W[s] = gelman_rubin(chain[:,0:int((s+1)/steps*chain.shape[1]),:])
 	
 	nrows = int((chain.shape[2]+1)/2)
-	fig, ax = plt.subplots(nrows=nrows, ncols=2, figsize=(12, nrows*3))
+	fig, ax = plt.subplots(nrows=nrows, ncols=2, figsize=(14, nrows*3))
 	plt.subplots_adjust(bottom=0.1, top=0.95, left=0.08, right=0.9, wspace=0.4, hspace=0.4)
 	ax = ax.flatten()
 
@@ -82,7 +82,7 @@ def trace_plot(chain, posterior, pnames=None, downsample=10):
 	assert posterior.shape[1] == chain.shape[0]
 
 	nrows = chain.shape[2]+1
-	fig, ax = plt.subplots(ncols=1, nrows=nrows, figsize=(12,nrows*3))
+	fig, ax = plt.subplots(ncols=1, nrows=nrows, figsize=(14,nrows*3))
 	fig.subplots_adjust(hspace=0.3, top=0.95, bottom=0.05)
 
 	# Plot the ln-probabilty for each of the walkers
@@ -103,7 +103,7 @@ def trace_plot(chain, posterior, pnames=None, downsample=10):
 	return fig
 
 def log_prob_hist(posterior):
-	fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12,10))
+	fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(14,10))
 
 	ax.set_title("Ln-Posterior Histogram")
 	ax.hist(posterior.reshape(posterior.shape[0]*posterior.shape[1]), bins=200, density=True) 
@@ -149,7 +149,7 @@ def psd_plot(gp_model, mean_model, params, time, flux, include_data=True, parsev
 		# Psd from data
 		if mean_model is not None:
 			mean_model.init_model(time, time[1]-time[0], 1)
-			mean = mean_model.get_value(params["median"][gp_ndim:], time)
+			mean = mean_model.compute(params["median"][gp_ndim:], time)
 			res_flux = flux - mean
 		else:
 			res_flux = flux
@@ -231,9 +231,9 @@ def lc_double_plot(gp_model, mean_model, params, time, flux, flux_err=None, zoom
 
 		#Setup mean_model
 		mean_model.init_model(time, time[1]-time[0], 1)
-		mean = mean_model.get_value(params["median"][gp_ndim:], time)
+		mean = mean_model.compute(params["median"][gp_ndim:], time)
 		mean_model.init_model(x, time[1]-time[0], 1)
-		overmean = mean_model.get_value(params["median"][gp_ndim:], x)
+		overmean = mean_model.compute(params["median"][gp_ndim:], x)
 
 		# Setup the gp from the gp_model
 		kernel = gp_model.get_kernel(params["median"][:gp_ndim])
@@ -304,7 +304,7 @@ def lc_double_plot(gp_model, mean_model, params, time, flux, flux_err=None, zoom
 	elif mean_model is not None:
 		#Setup mean_model
 		mean_model.init_model(x, time[1]-time[0], 1)
-		overmean = mean_model.get_value(params["median"], x)
+		overmean = mean_model.compute(params["median"], x)
 
 		# Plot the mean model
 		ax.plot(x, overmean, color="blue", linewidth=1, alpha=0.5, label='Model')
