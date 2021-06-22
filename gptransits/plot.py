@@ -190,14 +190,18 @@ def lc_double_plot(gp_model, mean_model, params, time, flux, flux_err=None, zoom
 	cadence = time[1]-time[0]
 	x = np.linspace(time[0], time[-1], num=int((time[-1]-time[0])/cadence*oversample)) # Timespan / cadence * 5
 
+	period_mask = params["names"] == "Period"
+	t0_mask = params["names"] == "Epoch"
+	period, t0 = params["median"][period_mask][0], params["median"][t0_mask][0]
+
 	if (zoom + offset) > 1.0:
 		print("Zoom + Offset percentages are larger than 1.0")
 		sys.exit()
 	# Zoom in limits
-	low = np.where(time >= (((time[-1]-time[0]) * offset) + time[0]) )[0][0]
-	up = np.where(time >= (((time[-1]-time[0]) * (offset + zoom)) + time[0]))[0][0]
-	olow = np.where(x >= (((time[-1]-time[0]) * offset) + time[0]))[0][0]
-	oup = np.where(x >= (((time[-1]-time[0]) * (offset + zoom)) + time[0]))[0][0]
+	low = np.where(time >= t0 - (0.15 * period) )[0][0]
+	up = np.where(time >= t0 + (0.15 * period) )[0][0]
+	olow = np.where(x >= t0 - (0.15 * period) )[0][0]
+	oup = np.where(x >= t0 + (0.15 * period) )[0][0]
 
 	# Zoom in data arrays
 	time_zoom = time[low:up]
@@ -248,9 +252,18 @@ def lc_double_plot(gp_model, mean_model, params, time, flux, flux_err=None, zoom
 		std = np.sqrt(var)
 		std = np.nan_to_num(std)
 
+		wnoise = params["median"][:gp_ndim][-1]
+		noise = np.sqrt(wnoise**2 + var)
+
 		# Plot the model with GP predictive distribution
 		ax.plot(x, model, color="#ff7f0e", linewidth=1, alpha=0.8, label= 'Model')
-		
+		ax.fill_between(x, model-noise, model+noise, color="#ff7f0e", alpha=0.5, edgecolor="none", label= r"1$\sigma$")
+
+		# Correlated + White noise 
+		#ax.fill_between(x, model+std, model-std, color="#ff7f0e", alpha=0.5, edgecolor="black", hatch="x", label= r"1$\sigma$ - Correlated", linewidth=1)
+		#ax.fill_between(x, model+std, model+noise, color="#ff7f0e", alpha=0.5, edgecolor="black", label= r"1$\sigma$ - White noise")
+		#ax.fill_between(x, model-noise, model-std, color="#ff7f0e", alpha=0.5, edgecolor="black")
+
 		# Plot the GP mean
 		# ax.plot(x, mu, color="red", linewidth=1, alpha=0.5, label="GP")
 		# Plot the mean model
@@ -263,10 +276,21 @@ def lc_double_plot(gp_model, mean_model, params, time, flux, flux_err=None, zoom
 		std_zoom = std[olow:oup]
 		model_zoom = model[olow:oup]
 		overmean_zoom = overmean[olow:oup]
+		noise_zoom = noise[olow:oup]
 
 		# Plot the GP predictive distribution
 		ax_zoom.plot(x_zoom, model_zoom, color="#ff7f0e", label= 'Model', linewidth=2, alpha=0.7)
-		ax_zoom.fill_between(x_zoom, model_zoom+std_zoom, model_zoom-std_zoom, color="#ff7f0e", alpha=0.5, edgecolor="none", label= r"1$\sigma$", linewidth=1.5)
+		ax_zoom.fill_between(x_zoom, model_zoom-noise_zoom, model_zoom+noise_zoom, color="#ff7f0e", 
+			alpha=0.5, edgecolor="none", label= r"1$\sigma$")
+
+		# Correlated + White noise zoom
+		# ax_zoom.fill_between(x_zoom, model_zoom+std_zoom, model_zoom-std_zoom, color="#ff7f0e", 
+		# 	alpha=0.5, edgecolor="none", hatch="x", label= r"1$\sigma$ - Correlated")
+		# ax_zoom.fill_between(x_zoom, model_zoom+std_zoom, model_zoom+noise_zoom, color="#ff7f0e", 
+		# 	alpha=0.5, edgecolor="none", label= r"1$\sigma$ - White noise")
+		# ax_zoom.fill_between(x_zoom, model_zoom-noise_zoom, model_zoom-std_zoom, color="#ff7f0e", 
+		# 	alpha=0.5, edgecolor="none")
+
 		# Plot the GP mean
 		ax_zoom.plot(x_zoom, mu_zoom, color="red", linewidth=2, alpha=0.7, label="GP")
 		# Plot the mean model
@@ -316,14 +340,14 @@ def lc_double_plot(gp_model, mean_model, params, time, flux, flux_err=None, zoom
 		ax_zoom.plot(x_zoom, overmean_zoom, color="blue", linewidth=2, alpha=0.5, label='Model')
 	
 	# ax.set_title("GP", fontsize=font)
-	ax.set_xlabel('Time (days)', fontsize=font)
-	ax.set_ylabel('Flux (ppm)', fontsize=font)
+	ax.set_xlabel('Time [BTJD]', fontsize=font)
+	ax.set_ylabel('Flux [ppm]', fontsize=font)
 	ax.legend(loc='lower right', fontsize=font-4)
 	ax.tick_params(labelsize=font-1)
 
 	# ax_zoom.set_title("GP Zoom-in", fontsize=font)
-	ax_zoom.set_xlabel('Time (days)', fontsize=font)
-	ax_zoom.set_ylabel('Flux (ppm)', fontsize=font)
+	ax_zoom.set_xlabel('Time [BTJD]', fontsize=font)
+	ax_zoom.set_ylabel('Flux [ppm]', fontsize=font)
 	ax_zoom.legend(loc='lower right', fontsize=font-4)
 	ax_zoom.tick_params(labelsize=font-1)
 
