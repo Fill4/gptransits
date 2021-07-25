@@ -122,9 +122,9 @@ def corner_plot(chain, truths=None, pnames=None, downsample=2):
 def psd_plot(gp_model, mean_model, params, time, flux, include_data=True, parseval_norm=True, nyquist_mult=1):
 
 	font=20
-	fig, ax = plt.subplots(figsize=(14, 8))
-	fig.subplots_adjust(left=.10, bottom=.10, right=.95, top=.93)
-	fig.suptitle("Power Spectrum", fontsize=24)
+	fig, ax = plt.subplots(figsize=(14, 7))
+	fig.subplots_adjust(left=.10, bottom=.10, right=.98, top=.97)
+	#fig.suptitle("Power Spectrum", fontsize=24)
 
 	names = gp_model.get_component_names()
 	gp_ndim = gp_model.get_parameters_names().size
@@ -137,8 +137,17 @@ def psd_plot(gp_model, mean_model, params, time, flux, include_data=True, parsev
 		full_psd += psd_vector[i]
 		ax.loglog(freq, psd_vector[i], ls="--", alpha=0.8, lw=2, label=names[i])
 
+	# Plot some realizations of the GP distributions in the PSD
+	# medians = params["median"][:gp_ndim]
+	# sigmas = ((medians - params["hpd_down"][:gp_ndim]) + (params["hpd_up"][:gp_ndim] - medians)) / 2
+	# samples = np.transpose([np.random.normal(med, sig, 50) for med, sig in zip(medians, sigmas)])
+	# for sample in samples:
+	# 	freq, psd_vector = gp_model.get_psd(sample, time, nyquist_mult=nyquist_mult)
+	# 	sample_psd = np.sum(psd_vector, axis=0) 
+	# 	ax.loglog(freq, sample_psd, ls="-", color='red', lw=1, alpha=0.2)
+
 	# ax.loglog(freq, nobump_power, ls='--', color='r', label='Model without gaussian', lw=2, alpha=0.8)
-	ax.loglog(freq, full_psd, ls="-", color='r', label='Power Spectrum', lw=3)
+	ax.loglog(freq, full_psd, ls="-", color='red', label='Power Spectrum', lw=3)
 	
 	# Get nyquist frequency and plot its line
 	cadence = (time[1] - time[0]) * days_to_microsec
@@ -154,13 +163,12 @@ def psd_plot(gp_model, mean_model, params, time, flux, include_data=True, parsev
 		else:
 			res_flux = flux
 
-		freq2, power = LombScargle(time*days_to_microsec, res_flux).autopower(maximum_frequency=nyquist*nyquist_mult, 
-																			normalization='psd', samples_per_peak=5)
+		freq2, power = LombScargle(time*days_to_microsec, res_flux).autopower(maximum_frequency=nyquist*nyquist_mult, normalization='psd', samples_per_peak=5)
 
 		# Parseval Normalization (Enrico)
 		if parseval_norm:
 			resolution = freq2[1]-freq2[0]
-			variance = np.var(flux)
+			variance = np.var(res_flux)
 			power = (power * variance / sum(power)) / resolution
 		# Celerite Normalization
 		else:
@@ -213,9 +221,9 @@ def lc_double_plot(gp_model, mean_model, params, time, flux, flux_err=None, zoom
 		flux_err_zoom = flux_err[low:up]
 
 	# Setup global figure
-	fig, axs = plt.subplots(ncols=1, nrows=2, figsize=(14, 12))
-	fig.subplots_adjust(left=.12, bottom=.10, right=.95, top=.94)
-	fig.suptitle("Lightcurve", fontsize=24)
+	fig, axs = plt.subplots(ncols=1, nrows=2, figsize=(14, 10))
+	fig.subplots_adjust(left=.11, bottom=.08, right=.98, top=.98)
+	#fig.suptitle("Lightcurve", fontsize=24)
 
 	ax = axs[0]
 	ax_zoom = axs[1]
@@ -255,8 +263,16 @@ def lc_double_plot(gp_model, mean_model, params, time, flux, flux_err=None, zoom
 		wnoise = params["median"][:gp_ndim][-1]
 		noise = np.sqrt(wnoise**2 + var)
 
+		# gp_samples = np.transpose([np.random.normal(med, sig, 20) for med, sig in zip(mu, noise)])
+		# tr_medians = params["median"][gp_ndim:]
+		# tr_sigmas = ((tr_medians - params["hpd_down"][gp_ndim:]) + (params["hpd_up"][gp_ndim:] - tr_medians)) / 2
+		# tr_samples = np.transpose([np.random.normal(med, sig, 20) for med, sig in zip(tr_medians, tr_sigmas)])
+		# for gp_sample, tr_params in zip(gp_samples, tr_samples):
+		# 	tr_sample = mean_model.compute(tr_params, x)
+		# 	ax.plot(x, gp_sample + tr_sample, color="tab:gray", lw=1, alpha=0.1, zorder=0.1)
+
 		# Plot the model with GP predictive distribution
-		ax.plot(x, model, color="#ff7f0e", linewidth=1, alpha=0.8, label= 'Model')
+		ax.plot(x, model, color="#ff7f0e", linewidth=1, alpha=0.8, label='Model')
 		ax.fill_between(x, model-noise, model+noise, color="#ff7f0e", alpha=0.5, edgecolor="none", label= r"1$\sigma$")
 
 		# Correlated + White noise 
@@ -278,6 +294,10 @@ def lc_double_plot(gp_model, mean_model, params, time, flux, flux_err=None, zoom
 		overmean_zoom = overmean[olow:oup]
 		noise_zoom = noise[olow:oup]
 
+		# for gp_sample, tr_params in zip(gp_samples, tr_samples):
+		# 	tr_sample = mean_model.compute(tr_params, x)
+		# 	ax_zoom.plot(x_zoom, gp_sample[olow:oup] + tr_sample[olow:oup], color="tab:gray", lw=2, alpha=0.2, zorder=0.1)
+
 		# Plot the GP predictive distribution
 		ax_zoom.plot(x_zoom, model_zoom, color="#ff7f0e", label= 'Model', linewidth=2, alpha=0.7)
 		ax_zoom.fill_between(x_zoom, model_zoom-noise_zoom, model_zoom+noise_zoom, color="#ff7f0e", 
@@ -292,7 +312,7 @@ def lc_double_plot(gp_model, mean_model, params, time, flux, flux_err=None, zoom
 		# 	alpha=0.5, edgecolor="none")
 
 		# Plot the GP mean
-		ax_zoom.plot(x_zoom, mu_zoom, color="red", linewidth=2, alpha=0.7, label="GP")
+		#ax_zoom.plot(x_zoom, mu_zoom, color="red", linewidth=2, alpha=0.7, label="GP")
 		# Plot the mean model
 		ax_zoom.plot(x_zoom, overmean_zoom, color="blue", linewidth=2, alpha=0.7, label='Transit')
 	
@@ -313,7 +333,6 @@ def lc_double_plot(gp_model, mean_model, params, time, flux, flux_err=None, zoom
 		# Plot the model with GP predictive distribution
 		ax.plot(x, mu, color="#ff7f0e", linewidth=1, alpha=0.5, label= 'Model')
 		ax.fill_between(x, mu+std, mu-std, color="#ff7f0e", alpha=0.4, edgecolor="none", label= r"1$\sigma$", linewidth=1.2)
-
 
 		# Repeat for the zoomed in plot
 		x_zoom = x[olow:oup]

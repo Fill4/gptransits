@@ -454,6 +454,8 @@ class Model():
         cls.stats["reduced_log_prob"] = reduced_log_prob
         cls.stats_flag = True
 
+        return cls.stats
+
         # TODO: Output to file. Can be based on dict
         # --------------------------------------------------------------------------
         # output = f"{lc_file.stem:>13s}"

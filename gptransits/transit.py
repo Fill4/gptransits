@@ -14,7 +14,7 @@ class BatmanModel(object):
 	def __init__(self, config):
 		self.npars = 9
 		self.parameter_names = np.array(['P', 't0', 'Rrat', 'aR', 'cosi', 'e', 'w', "u1", "u2"])
-		self.parameter_latex_names = np.array(['Period', 'Epoch', r'$R_p / R_{\star}$', r'a / $R_{\star}$', r'cos($i$)', 'e', 'w', r"$u_1$", r"$u_2$"])
+		self.parameter_latex_names = np.array(['Period', 'Epoch', r'$R_p / R_{\star}$', r'a / $R_{\star}$', r'$\cos (i)$', r'$e$', r'$w$', r"$u_1$", r"$u_2$"])
 		self.parameter_units = np.array(["days", "days", "", "", "", "", "", "", ""])
 		self.mask = np.full(self.npars, True)
 
@@ -100,10 +100,22 @@ class BatmanModel(object):
 		self.batpars.t0 = self.pars[1]
 		self.batpars.rp = self.pars[2]
 		self.batpars.a = self.pars[3]
-		self.batpars.inc = np.rad2deg(np.arccos(self.pars[4]/self.pars[3]))
+		self.batpars.inc = self.pars[4]
 		self.batpars.ecc = self.pars[5]
 		self.batpars.w = self.pars[6]
 		self.batpars.u = [self.pars[7], self.pars[8]]
+		
+		# ecosw, esinw
+		# self.batpars.w = np.rad2deg(np.arctan(self.pars[5]/self.pars[6]))
+		# self.batpars.ecc = np.sqrt(self.pars[5]**2 + self.pars[6]**2)
+		# if self.batpars.ecc > 0.95:
+		# 	self.batpars.ecc = 0.95
+
+		# impact parameter
+		# self.batpars.inc = np.rad2deg(np.arccos(self.pars[4]/self.pars[3]))
+
+		# Kipping parametrization
+		# self.batpars.u = [2 * np.sqrt(self.pars[7]) * self.pars[8], np.sqrt(self.pars[7]) * (1 - 2*self.pars[8])]
 
 	def lnprior(self, params):
 		# return sum([self.priors[key].logpdf(params[i]) for i, key in enumerate(self.priors)])
